@@ -499,16 +499,31 @@ button.ghost:hover {
   background: var(--chord);
 }
 
-.keyboard {
+.stage {
   width: 100%;
   overflow-x: auto;
+}
+
+.stage-inner {
+  min-width: 640px;
+  position: relative;
+}
+
+.waterfall {
+  display: block;
+  width: 100%;
+  height: 220px;
+  background: linear-gradient(180deg, #1a1f3d 0%, #141834 60%, #10132a 100%);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
 }
 
 .keyboard-inner {
   position: relative;
   display: flex;
   height: 190px;
-  min-width: 640px;
+  width: 100%;
   user-select: none;
   touch-action: none;
 }
@@ -661,6 +676,125 @@ button.ghost:hover {
   transform: translate(-50%, -50%);
   transition: left 0.04s linear;
   box-shadow: 0 0 8px var(--accent);
+}
+
+/* ---------- Mixer ---------- */
+.mixer-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  align-items: end;
+}
+
+.mixer-grid .control {
+  min-width: 150px;
+}
+
+.tempo-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tempo-input input {
+  width: 64px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 7px 9px;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.tempo-input input:focus {
+  border-color: var(--accent);
+}
+
+.bpm-unit {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+
+/* ---------- Transport ---------- */
+.transport-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.transport-row + .transport-row {
+  margin-top: 10px;
+}
+
+.t-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.t-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.t-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.t-btn.ghost {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.file-btn {
+  cursor: pointer;
+}
+
+.t-btn.record .rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.t-btn.record.armed {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.t-btn.record.armed .rec-dot {
+  animation: rec-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.transport-info {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.song-name {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.songroll {
+  background: linear-gradient(180deg, #10132a 0%, #141834 40%, #1a1f3d 100%);
 }
 
 /* ---------- Footer ---------- */

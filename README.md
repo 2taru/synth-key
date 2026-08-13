@@ -63,23 +63,37 @@ note-trigger hot path at all.
 - **Modulation wheel (CC1)** — adds vibrato (a shared LFO into each note's detune),
   reflected by an on-screen slider that also drives it by hand.
 - **Visualizer** — toggle to highlight played keys in real time.
+- **Note waterfall** — a live piano-roll: played notes rise from the keyboard,
+  their length tracking hold time and brightness tracking velocity.
+- **Velocity** — MIDI note velocity drives loudness; on-screen, clicking lower on
+  a key (or pen/touch pressure) plays louder.
 - **Chord detection** — a separate toggle that names the chord you're playing
   (e.g. play C-E-G-B → "Cmaj7"), using `tonal`'s chord detection.
 - **Chord lookup** — type any chord (`Am`, `Cmaj7`, `G7b9`, `F#m11b5`) and see its
   notes highlighted in a distinct color; the highlight follows the octave shift.
+- **Mixer** — master volume and a reverb send.
+- **Metronome & tempo** — click track with adjustable BPM.
+- **Recording** — record what you play and export it as a `.mid` file, or play it back.
+- **Song mode** — load a `.mid` file and watch its notes fall to the keyboard
+  (Synthesia-style) as it plays.
 
 ## Project layout
 
 ```
 src/
-  audio/audioEngine.ts     # sound engine (soundfont-player) + pitch bend, outside React
-  audio/notes.ts           # MIDI number <-> note name helpers
+  audio/audioEngine.ts     # sound engine + master/reverb bus + pitch bend, outside React
+  audio/notes.ts           # MIDI <-> note name helpers, keyboard geometry
+  audio/metronome.ts       # look-ahead click track
+  audio/recorder.ts        # records engine note events into a sequence
+  audio/notePlayer.ts      # schedules a sequence back through the engine
+  audio/sequence.ts        # note-sequence model + event pairing
   midi/useMidi.ts          # Web MIDI subscription, drives the engine directly
-  music/chords.ts          # chord symbol -> MIDI notes, and note-set -> chord (tonal)
+  music/chords.ts          # chord symbol <-> notes (tonal)
   music/gmInstruments.ts   # the 128 GM instruments grouped by family
-  components/               # Logo, PianoKeyboard, SoundLibrary, InstrumentPanel,
-                            #   ChordPanel, DetectedChord, OctaveControl,
-                            #   PitchBendMeter, ModulationSlider, Toggle
+  music/midiFile.ts        # .mid import/export (@tonejs/midi)
+  components/               # Logo, PianoKeyboard, NoteWaterfall, SongRoll,
+                            #   SoundLibrary, InstrumentPanel, ChordPanel,
+                            #   DetectedChord, MixerPanel, TransportPanel, Changelog, …
   App.tsx                  # wiring & state
 ```
 

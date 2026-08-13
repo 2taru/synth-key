@@ -4,6 +4,14 @@ import { midiToName } from './audio/notes';
 import { useMidi, type MidiStatus } from './midi/useMidi';
 import { chordToMidi, detectChord, type ChordResult } from './music/chords';
 import { PianoKeyboard } from './components/PianoKeyboard';
+import { NoteWaterfall } from './components/NoteWaterfall';
+import { SongRoll } from './components/SongRoll';
+import { MixerPanel } from './components/MixerPanel';
+import { TransportPanel } from './components/TransportPanel';
+import { Metronome } from './audio/metronome';
+import { Recorder } from './audio/recorder';
+import { NotePlayer } from './audio/notePlayer';
+import { parseMidiFile, downloadMidi, type ParsedSong } from './music/midiFile';
 import { InstrumentPanel, type InstrumentItem } from './components/InstrumentPanel';
 import { SoundLibrary } from './components/SoundLibrary';
 import { ChordPanel } from './components/ChordPanel';
@@ -23,6 +31,7 @@ const MIN_LOW = 12; // C0
 const MAX_LOW = 72; // C5 .. C9
 
 const NO_KEYS: Set<number> = new Set();
+const SONG_LEAD_IN = 2; // seconds of fall-in before the first note plays
 
 /**
  * Shift the visible window (octave-aligned) minimally so `midi` falls inside it —
@@ -49,12 +58,23 @@ export default function App() {
   if (!engineRef.current) engineRef.current = new AudioEngine();
   const engine = engineRef.current;
 
+  // Studio helpers (constructed once; they don't create audio nodes until used).
+  const metronomeRef = useRef<Metronome | null>(null);
+  if (!metronomeRef.current) metronomeRef.current = new Metronome(engine.ctx, engine.masterBus);
+  const recorderRef = useRef<Recorder | null>(null);
+  if (!recorderRef.current) recorderRef.current = new Recorder(engine);
+  const recPlayerRef = useRef<NotePlayer | null>(null);
+  if (!recPlayerRef.current) recPlayerRef.current = new NotePlayer(engine);
+  const songPlayerRef = useRef<NotePlayer | null>(null);
+  if (!songPlayerRef.current) songPlayerRef.current = new NotePlayer(engine);
+
   const [instruments, setInstruments] = useState<InstrumentItem[]>([
     { name: DEFAULT_INSTRUMENT, status: 'loading' },
   ]);
   const [active, setActive] = useState(DEFAULT_INSTRUMENT);
 
   const [visualizer, setVisualizer] = useState(false);
+  const [noteWaterfall, setNoteWaterfall] = useState(false);
   const [chordDetect, setChordDetect] = useState(false);
   const [chordLookup, setChordLookup] = useState(false);
   const [heldNotes, setHeldNotes] = useState<Set<number>>(() => new Set());
@@ -69,6 +89,17 @@ export default function App() {
   const [bend, setBend] = useState(0);
   const [mod, setMod] = useState(0);
   const [sustain, setSustain] = useState(false);
+
+  // Mixer / transport
+  const [master, setMaster] = useState(0.9);
+  const [reverb, setReverb] = useState(0);
+  const [bpm, setBpm] = useState(120);
+  const [metronomeOn, setMetronomeOn] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recPlaying, setRecPlaying] = useState(false);
+  const [recNoteCount, setRecNoteCount] = useState(0);
+  const [song, setSong] = useState<ParsedSong | null>(null);
+  const [songPlaying, setSongPlaying] = useState(false);
   const [midiStatus, setMidiStatus] = useState<MidiStatus>('idle');
   const [devices, setDevices] = useState<string[]>([]);
   const [audioReady, setAudioReady] = useState(false);
@@ -110,26 +141,20 @@ export default function App() {
   useEffect(() => {
     const trackHeld = visualizer || chordDetect;
     if (!trackHeld) setHeldNotes(new Set());
+    if (!trackHeld && !followMidi) return;
 
-    if (trackHeld || followMidi) {
-      engine.onNote = (midi, on) => {
-        if (trackHeld) {
-          setHeldNotes((prev) => {
-            const next = new Set(prev);
-            if (on) next.add(midi);
-            else next.delete(midi);
-            return next;
-          });
-        }
-        // Follow the played octave (no-op re-render when already in view).
-        if (followMidi && on) setLow((l) => nextLowForNote(l, midi));
-      };
-    } else {
-      engine.onNote = null;
-    }
-    return () => {
-      engine.onNote = null;
-    };
+    return engine.addNoteListener((midi, on) => {
+      if (trackHeld) {
+        setHeldNotes((prev) => {
+          const next = new Set(prev);
+          if (on) next.add(midi);
+          else next.delete(midi);
+          return next;
+        });
+      }
+      // Follow the played octave (no-op re-render when already in view).
+      if (followMidi && on) setLow((l) => nextLowForNote(l, midi));
+    });
   }, [visualizer, chordDetect, followMidi, engine]);
 
   // --- Reflect the pitch-bend wheel, mod wheel and sustain pedal in the UI ---
@@ -149,10 +174,16 @@ export default function App() {
     engine.setActive(active);
   }, [active, engine]);
 
-  // --- Dev-only: expose the engine for manual testing (no MIDI hardware) ---
+  // --- Dev-only: expose the engine + studio helpers for manual testing ---
   useEffect(() => {
     if (import.meta.env.DEV) {
-      (window as unknown as { __synth?: AudioEngine }).__synth = engine;
+      Object.assign(window as unknown as Record<string, unknown>, {
+        __synth: engine,
+        __metronome: metronomeRef.current,
+        __recorder: recorderRef.current,
+        __recPlayer: recPlayerRef.current,
+        __songPlayer: songPlayerRef.current,
+      });
     }
   }, [engine]);
 
@@ -266,9 +297,9 @@ export default function App() {
 
   // --- Playing from the on-screen keyboard (mouse / touch) ---
   const handlePress = useCallback(
-    (midi: number) => {
+    (midi: number, velocity: number) => {
       void engine.resume();
-      engine.noteOn(midi, 100);
+      engine.noteOn(midi, velocity);
     },
     [engine],
   );
@@ -287,6 +318,119 @@ export default function App() {
     (value: number) => engine.setModulation(value),
     [engine],
   );
+
+  // --- Mixer ---
+  const handleMaster = useCallback(
+    (v: number) => {
+      setMaster(v);
+      engine.setMasterVolume(v);
+    },
+    [engine],
+  );
+  const handleReverb = useCallback(
+    (v: number) => {
+      setReverb(v);
+      engine.setReverb(v);
+    },
+    [engine],
+  );
+  const handleBpm = useCallback((v: number) => {
+    const clamped = Math.max(20, Math.min(300, v || 120));
+    setBpm(clamped);
+    metronomeRef.current?.setBpm(clamped);
+  }, []);
+  const handleMetronome = useCallback(
+    (on: boolean) => {
+      void engine.resume();
+      if (on) metronomeRef.current?.start();
+      else metronomeRef.current?.stop();
+      setMetronomeOn(on);
+    },
+    [engine],
+  );
+
+  // --- Recording & playback ---
+  const stopAllPlayback = useCallback(() => {
+    recPlayerRef.current?.stop();
+    songPlayerRef.current?.stop();
+    setRecPlaying(false);
+    setSongPlaying(false);
+  }, []);
+
+  const handleRecord = useCallback(() => {
+    const rec = recorderRef.current;
+    if (!rec) return;
+    if (rec.isRecording) {
+      rec.stop();
+      setRecording(false);
+      setRecNoteCount(rec.noteCount);
+    } else {
+      void engine.resume();
+      stopAllPlayback();
+      rec.start();
+      setRecording(true);
+      setRecNoteCount(0);
+    }
+  }, [engine, stopAllPlayback]);
+
+  const handlePlayRec = useCallback(() => {
+    const rec = recorderRef.current;
+    const player = recPlayerRef.current;
+    if (!rec || !player || rec.noteCount === 0) return;
+    void engine.resume();
+    stopAllPlayback();
+    player.onEnd = () => setRecPlaying(false);
+    player.play(rec.getNotes());
+    setRecPlaying(true);
+  }, [engine, stopAllPlayback]);
+
+  const handleExport = useCallback(() => {
+    const rec = recorderRef.current;
+    if (rec && rec.noteCount > 0) downloadMidi(rec.getNotes(), bpm);
+  }, [bpm]);
+
+  // --- Song mode ---
+  const handleLoadSong = useCallback(
+    (file: File) => {
+      parseMidiFile(file)
+        .then((parsed) => {
+          setSong(parsed);
+          if (parsed.bpm) handleBpm(parsed.bpm);
+          // Center the 49-key window on the song's note range.
+          if (parsed.notes.length) {
+            const mids = parsed.notes.map((n) => n.midi);
+            const center = (Math.min(...mids) + Math.max(...mids)) / 2;
+            const target = Math.round((center - KEY_SPAN / 2) / 12) * 12;
+            setLow(Math.max(MIN_LOW, Math.min(MAX_LOW, target)));
+          }
+        })
+        .catch(() => setSong(null));
+    },
+    [handleBpm],
+  );
+
+  const handlePlaySong = useCallback(() => {
+    const player = songPlayerRef.current;
+    if (!player || !song || song.notes.length === 0) return;
+    void engine.resume();
+    stopAllPlayback();
+    player.onEnd = () => setSongPlaying(false);
+    player.play(song.notes, SONG_LEAD_IN);
+    setSongPlaying(true);
+  }, [engine, song, stopAllPlayback]);
+
+  const handleStopSong = useCallback(() => {
+    songPlayerRef.current?.stop();
+    setSongPlaying(false);
+  }, []);
+
+  const handleClearSong = useCallback(() => {
+    songPlayerRef.current?.stop();
+    setSongPlaying(false);
+    setSong(null);
+  }, []);
+
+  const songTime = useCallback(() => songPlayerRef.current?.songTime() ?? 0, []);
 
   const activeKeys = visualizer ? heldNotes : NO_KEYS;
 
@@ -348,6 +492,12 @@ export default function App() {
               hint="Highlight played keys"
             />
             <Toggle
+              checked={noteWaterfall}
+              onChange={setNoteWaterfall}
+              label="Note waterfall"
+              hint="Live rising piano roll"
+            />
+            <Toggle
               checked={chordDetect}
               onChange={setChordDetect}
               label="Chord detection"
@@ -378,6 +528,33 @@ export default function App() {
             <ModulationSlider value={mod} onChange={handleMod} />
           </section>
 
+          <MixerPanel
+            master={master}
+            onMaster={handleMaster}
+            reverb={reverb}
+            onReverb={handleReverb}
+            bpm={bpm}
+            onBpm={handleBpm}
+            metronomeOn={metronomeOn}
+            onMetronome={handleMetronome}
+          />
+
+          <TransportPanel
+            recording={recording}
+            recPlaying={recPlaying}
+            recNoteCount={recNoteCount}
+            onRecord={handleRecord}
+            onPlayRec={handlePlayRec}
+            onStop={stopAllPlayback}
+            onExport={handleExport}
+            song={song ? { name: song.name, noteCount: song.notes.length } : null}
+            songPlaying={songPlaying}
+            onLoadSong={handleLoadSong}
+            onPlaySong={handlePlaySong}
+            onStopSong={handleStopSong}
+            onClearSong={handleClearSong}
+          />
+
           {chordDetect && (
             <DetectedChord detected={detected} heldCount={heldNotes.size} />
           )}
@@ -400,14 +577,30 @@ export default function App() {
                 <span className="swatch chord" /> Chord
               </span>
             </div>
-            <PianoKeyboard
-              low={low}
-              high={high}
-              activeKeys={activeKeys}
-              chordKeys={chordKeys}
-              onPress={handlePress}
-              onRelease={handleRelease}
-            />
+            <div className="stage">
+              <div className="stage-inner">
+                {songPlaying && song ? (
+                  <SongRoll
+                    notes={song.notes}
+                    getTime={songTime}
+                    low={low}
+                    high={high}
+                  />
+                ) : (
+                  noteWaterfall && (
+                    <NoteWaterfall engine={engine} low={low} high={high} />
+                  )
+                )}
+                <PianoKeyboard
+                  low={low}
+                  high={high}
+                  activeKeys={activeKeys}
+                  chordKeys={chordKeys}
+                  onPress={handlePress}
+                  onRelease={handleRelease}
+                />
+              </div>
+            </div>
           </section>
         </main>
       </div>

@@ -27,7 +27,7 @@ interface SfPlayer {
   stop: (when?: number) => void;
 }
 
-export type NoteCallback = (midi: number, on: boolean) => void;
+export type NoteCallback = (midi: number, on: boolean, velocity: number) => void;
 export type BendCallback = (normalized: number) => void;
 export type ModCallback = (value: number) => void;
 export type SustainCallback = (on: boolean) => void;
@@ -52,8 +52,12 @@ export class AudioEngine {
   /** Name of the instrument the keyboard currently plays. */
   activeName: string = DEFAULT_INSTRUMENT;
 
-  /** Set by React only while the visualizer / chord-detect features are ON. */
-  onNote: NoteCallback | null = null;
+  /**
+   * Note listeners (visualizer, chord-detect, octave-follow, waterfall, …).
+   * Registered only while a feature needs them, so the hot path stays empty
+   * otherwise. Emitting to an empty set is effectively free.
+   */
+  private readonly noteListeners = new Set<NoteCallback>();
 
   /** Set by React to reflect the pitch-bend wheel in the UI. */
   onBend: BendCallback | null = null;
@@ -76,11 +80,36 @@ export class AudioEngine {
   private readonly lfo: OscillatorNode;
   private readonly modGain: GainNode;
 
+  /**
+   * Master mixing graph:
+   *   instruments -> masterInput -> masterGain -> destination   (dry)
+   *   masterInput -> convolver  -> wetGain    -> masterGain      (reverb send)
+   * The metronome taps into `masterGain` too (volume, but no reverb).
+   */
+  readonly masterInput: GainNode;
+  private readonly masterGain: GainNode;
+  private readonly wetGain: GainNode;
+
   constructor() {
     const Ctx: typeof AudioContext =
       window.AudioContext ??
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     this.ctx = new Ctx({ latencyHint: 'interactive' });
+
+    // --- Master / reverb graph ---
+    this.masterInput = this.ctx.createGain();
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0.9;
+    const convolver = this.ctx.createConvolver();
+    convolver.buffer = this.createImpulseResponse(2.2, 2.5);
+    this.wetGain = this.ctx.createGain();
+    this.wetGain.gain.value = 0; // dry by default
+
+    this.masterInput.connect(this.masterGain); // dry
+    this.masterInput.connect(convolver);
+    convolver.connect(this.wetGain);
+    this.wetGain.connect(this.masterGain); // wet send
+    this.masterGain.connect(this.ctx.destination);
 
     // A single free-running LFO drives vibrato on every note. Its depth (modGain)
     // starts at 0, so it is silent until the mod wheel is moved.
@@ -92,8 +121,44 @@ export class AudioEngine {
     this.lfo.start();
   }
 
+  /** Generate a decaying stereo noise impulse response for the reverb. */
+  private createImpulseResponse(seconds: number, decay: number): AudioBuffer {
+    const rate = this.ctx.sampleRate;
+    const length = Math.max(1, Math.floor(rate * seconds));
+    const ir = this.ctx.createBuffer(2, length, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = ir.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+      }
+    }
+    return ir;
+  }
+
+  /** Master output volume, 0..1. */
+  setMasterVolume(value: number): void {
+    this.masterGain.gain.value = Math.max(0, Math.min(1, value));
+  }
+
+  /** Reverb mix, 0..1 (mapped to a musical wet range). */
+  setReverb(amount: number): void {
+    this.wetGain.gain.value = Math.max(0, Math.min(1, amount)) * 0.9;
+  }
+
   get contextState(): AudioContextState {
     return this.ctx.state;
+  }
+
+  /** Subscribe to note on/off events. Returns an unsubscribe function. */
+  addNoteListener(fn: NoteCallback): () => void {
+    this.noteListeners.add(fn);
+    return () => {
+      this.noteListeners.delete(fn);
+    };
+  }
+
+  private emitNote(midi: number, on: boolean, velocity: number): void {
+    this.noteListeners.forEach((fn) => fn(midi, on, velocity));
   }
 
   /** Browsers start the AudioContext suspended; resume it after a user gesture. */
@@ -111,11 +176,17 @@ export class AudioEngine {
     return this.instruments.has(name);
   }
 
+  /** Node the metronome (or other aux sources) connect to: master volume, no reverb. */
+  get masterBus(): AudioNode {
+    return this.masterGain;
+  }
+
   /** Fetch and decode an instrument from the Gleitz soundfont repo. Idempotent. */
   async load(name: string): Promise<void> {
     if (this.instruments.has(name)) return;
     const inst = (await Soundfont.instrument(this.ctx, name, {
       soundfont: SOUNDFONT_BANK,
+      destination: this.masterInput,
     })) as SfPlayer;
     this.instruments.set(name, inst);
   }
@@ -168,7 +239,7 @@ export class AudioEngine {
       }
     }
     this.playing.set(midi, node);
-    this.onNote?.(midi, true);
+    this.emitNote(midi, true, Math.max(0, Math.min(127, velocity)));
   }
 
   /** Release a note. Held by the sustain pedal if it is down. */
@@ -180,7 +251,7 @@ export class AudioEngine {
       this.stopNote(midi);
     }
     // The physical key is up, so visual feedback releases regardless of sustain.
-    this.onNote?.(midi, false);
+    this.emitNote(midi, false, 0);
   }
 
   /**

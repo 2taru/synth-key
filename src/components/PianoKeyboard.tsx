@@ -11,8 +11,25 @@ interface Props {
   activeKeys: Set<number>;
   /** Notes highlighted by the chord lookup — a distinct color. */
   chordKeys: Set<number>;
-  onPress?: (midi: number) => void;
+  onPress?: (midi: number, velocity: number) => void;
   onRelease?: (midi: number) => void;
+}
+
+/**
+ * Derive a MIDI-style velocity (1..127) from a pointer press: pen/touch use real
+ * pressure; a mouse uses how low on the key it clicked (bottom = louder), like a
+ * real keybed.
+ */
+function velocityFromPointer(e: ReactPointerEvent<HTMLDivElement>): number {
+  let v: number;
+  if (e.pointerType !== 'mouse' && e.pressure > 0) {
+    v = Math.round(e.pressure * 127);
+  } else {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const rel = rect.height > 0 ? (e.clientY - rect.top) / rect.height : 0.75;
+    v = Math.round(28 + rel * 99); // ~28 (top) .. 127 (bottom)
+  }
+  return Math.max(1, Math.min(127, v));
 }
 
 /**
@@ -38,7 +55,7 @@ function PianoKeyboardBase({
 
   const press = (m: number) => (e: ReactPointerEvent<HTMLDivElement>) => {
     e.preventDefault();
-    onPress?.(m); // trigger sound first — never let capture failures block it
+    onPress?.(m, velocityFromPointer(e)); // sound first — capture must never block it
     try {
       e.currentTarget.setPointerCapture?.(e.pointerId);
     } catch {
@@ -58,9 +75,8 @@ function PianoKeyboardBase({
       .join(' ');
 
   return (
-    <div className="keyboard" role="group" aria-label="Piano keyboard">
-      <div className="keyboard-inner">
-        {whites.map((m) => (
+    <div className="keyboard-inner" role="group" aria-label="Piano keyboard">
+      {whites.map((m) => (
           <div
             key={m}
             className={classNames(m, 'white')}
@@ -93,7 +109,6 @@ function PianoKeyboardBase({
             />
           );
         })}
-      </div>
     </div>
   );
 }

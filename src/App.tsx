@@ -7,10 +7,12 @@ import { PianoKeyboard } from './components/PianoKeyboard';
 import { NoteWaterfall } from './components/NoteWaterfall';
 import { SongRoll } from './components/SongRoll';
 import { MixerPanel } from './components/MixerPanel';
-import { TransportPanel } from './components/TransportPanel';
+import { RecorderPanel } from './components/RecorderPanel';
+import { SongPanel } from './components/SongPanel';
 import { Metronome } from './audio/metronome';
 import { Recorder } from './audio/recorder';
 import { NotePlayer } from './audio/notePlayer';
+import { SongController } from './audio/songController';
 import { parseMidiFile, downloadMidi, type ParsedSong } from './music/midiFile';
 import { InstrumentPanel, type InstrumentItem } from './components/InstrumentPanel';
 import { SoundLibrary } from './components/SoundLibrary';
@@ -22,7 +24,15 @@ import { PitchBendMeter } from './components/PitchBendMeter';
 import { ModulationSlider } from './components/ModulationSlider';
 import { Logo } from './components/Logo';
 import { Changelog } from './components/Changelog';
+import { SettingsModal } from './components/SettingsModal';
 import { APP_VERSION } from './changelog';
+import {
+  loadSettings,
+  saveSettings,
+  applyColors,
+  DEFAULT_COLORS,
+  type Colors,
+} from './settings';
 
 // 49-key keyboard window (span of 48 semitones), always starting on a C.
 const KEY_SPAN = 48;
@@ -65,23 +75,30 @@ export default function App() {
   if (!recorderRef.current) recorderRef.current = new Recorder(engine);
   const recPlayerRef = useRef<NotePlayer | null>(null);
   if (!recPlayerRef.current) recPlayerRef.current = new NotePlayer(engine);
-  const songPlayerRef = useRef<NotePlayer | null>(null);
-  if (!songPlayerRef.current) songPlayerRef.current = new NotePlayer(engine);
+  const songRef = useRef<SongController | null>(null);
+  if (!songRef.current) songRef.current = new SongController(engine);
+
+  // Persisted settings (loaded once from localStorage).
+  const s0 = useMemo(loadSettings, []);
+  const [colors, setColors] = useState<Colors>(s0.colors);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const stageWrapRef = useRef<HTMLDivElement | null>(null);
 
   const [instruments, setInstruments] = useState<InstrumentItem[]>([
     { name: DEFAULT_INSTRUMENT, status: 'loading' },
   ]);
   const [active, setActive] = useState(DEFAULT_INSTRUMENT);
 
-  const [visualizer, setVisualizer] = useState(false);
-  const [noteWaterfall, setNoteWaterfall] = useState(false);
-  const [chordDetect, setChordDetect] = useState(false);
-  const [chordLookup, setChordLookup] = useState(false);
+  const [visualizer, setVisualizer] = useState(s0.visualizer);
+  const [noteWaterfall, setNoteWaterfall] = useState(s0.noteWaterfall);
+  const [chordDetect, setChordDetect] = useState(s0.chordDetect);
+  const [chordLookup, setChordLookup] = useState(s0.chordLookup);
   const [heldNotes, setHeldNotes] = useState<Set<number>>(() => new Set());
 
   const [low, setLow] = useState(DEFAULT_LOW);
   const high = low + KEY_SPAN;
-  const [followMidi, setFollowMidi] = useState(true);
+  const [followMidi, setFollowMidi] = useState(s0.followMidi);
 
   const [chordSymbol, setChordSymbol] = useState<string | null>(null);
   const [chordError, setChordError] = useState<string | null>(null);
@@ -91,15 +108,21 @@ export default function App() {
   const [sustain, setSustain] = useState(false);
 
   // Mixer / transport
-  const [master, setMaster] = useState(0.9);
-  const [reverb, setReverb] = useState(0);
-  const [bpm, setBpm] = useState(120);
+  const [master, setMaster] = useState(s0.master);
+  const [reverb, setReverb] = useState(s0.reverb);
+  const [bpm, setBpm] = useState(s0.bpm);
   const [metronomeOn, setMetronomeOn] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recPlaying, setRecPlaying] = useState(false);
   const [recNoteCount, setRecNoteCount] = useState(0);
   const [song, setSong] = useState<ParsedSong | null>(null);
   const [songPlaying, setSongPlaying] = useState(false);
+  const [practice, setPractice] = useState(false);
+  const [targetKeys, setTargetKeys] = useState<Set<number>>(() => new Set());
+
+  // Feature panels (recording & song mode are separate, toggle-revealed features)
+  const [recorderMode, setRecorderMode] = useState(s0.recorderMode);
+  const [songMode, setSongMode] = useState(s0.songMode);
   const [midiStatus, setMidiStatus] = useState<MidiStatus>('idle');
   const [devices, setDevices] = useState<string[]>([]);
   const [audioReady, setAudioReady] = useState(false);
@@ -120,6 +143,55 @@ export default function App() {
       cancelled = true;
     };
   }, [engine]);
+
+  // --- Apply persisted audio settings to the engine once on mount ---
+  useEffect(() => {
+    engine.setMasterVolume(s0.master);
+    engine.setReverb(s0.reverb);
+    metronomeRef.current?.setBpm(s0.bpm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine]);
+
+  // --- Apply editable colors to CSS variables ---
+  useEffect(() => {
+    applyColors(colors);
+  }, [colors]);
+
+  // --- Persist settings to localStorage whenever they change ---
+  useEffect(() => {
+    saveSettings({
+      colors,
+      master,
+      reverb,
+      bpm,
+      followMidi,
+      visualizer,
+      noteWaterfall,
+      chordDetect,
+      chordLookup,
+      recorderMode,
+      songMode,
+    });
+  }, [
+    colors,
+    master,
+    reverb,
+    bpm,
+    followMidi,
+    visualizer,
+    noteWaterfall,
+    chordDetect,
+    chordLookup,
+    recorderMode,
+    songMode,
+  ]);
+
+  // --- Track fullscreen state of the stage ---
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === stageWrapRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
 
   // --- Resume the AudioContext on the first user gesture ---
   useEffect(() => {
@@ -174,6 +246,21 @@ export default function App() {
     engine.setActive(active);
   }, [active, engine]);
 
+  // --- Song controller: highlight target keys and reset on end ---
+  useEffect(() => {
+    const song = songRef.current;
+    if (!song) return;
+    song.onTargets = (midis) => setTargetKeys(new Set(midis));
+    song.onEnd = () => {
+      setSongPlaying(false);
+      setTargetKeys(new Set());
+    };
+    return () => {
+      song.onTargets = null;
+      song.onEnd = null;
+    };
+  }, []);
+
   // --- Dev-only: expose the engine + studio helpers for manual testing ---
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -182,7 +269,7 @@ export default function App() {
         __metronome: metronomeRef.current,
         __recorder: recorderRef.current,
         __recPlayer: recPlayerRef.current,
-        __songPlayer: songPlayerRef.current,
+        __song: songRef.current,
       });
     }
   }, [engine]);
@@ -352,7 +439,7 @@ export default function App() {
   // --- Recording & playback ---
   const stopAllPlayback = useCallback(() => {
     recPlayerRef.current?.stop();
-    songPlayerRef.current?.stop();
+    songRef.current?.stop();
     setRecPlaying(false);
     setSongPlaying(false);
   }, []);
@@ -395,6 +482,7 @@ export default function App() {
       parseMidiFile(file)
         .then((parsed) => {
           setSong(parsed);
+          songRef.current?.load(parsed.notes);
           if (parsed.bpm) handleBpm(parsed.bpm);
           // Center the 49-key window on the song's note range.
           if (parsed.notes.length) {
@@ -410,27 +498,42 @@ export default function App() {
   );
 
   const handlePlaySong = useCallback(() => {
-    const player = songPlayerRef.current;
-    if (!player || !song || song.notes.length === 0) return;
+    if (!song || song.notes.length === 0) return;
     void engine.resume();
     stopAllPlayback();
-    player.onEnd = () => setSongPlaying(false);
-    player.play(song.notes, SONG_LEAD_IN);
+    songRef.current?.play(practice ? 'practice' : 'auto', SONG_LEAD_IN);
     setSongPlaying(true);
-  }, [engine, song, stopAllPlayback]);
+  }, [engine, song, practice, stopAllPlayback]);
 
   const handleStopSong = useCallback(() => {
-    songPlayerRef.current?.stop();
+    songRef.current?.stop();
     setSongPlaying(false);
+    setTargetKeys(new Set());
   }, []);
 
   const handleClearSong = useCallback(() => {
-    songPlayerRef.current?.stop();
+    songRef.current?.stop();
     setSongPlaying(false);
+    setTargetKeys(new Set());
     setSong(null);
   }, []);
 
-  const songTime = useCallback(() => songPlayerRef.current?.songTime() ?? 0, []);
+  const songTime = useCallback(() => songRef.current?.songTime() ?? 0, []);
+
+  // --- Settings & fullscreen ---
+  const handleColorChange = useCallback((key: keyof Colors, value: string) => {
+    setColors((prev) => ({ ...prev, [key]: value }));
+  }, []);
+  const handleResetColors = useCallback(() => setColors(DEFAULT_COLORS), []);
+  const toggleFullscreen = useCallback(() => {
+    const el = stageWrapRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen?.().catch(() => {});
+    }
+  }, []);
 
   const activeKeys = visualizer ? heldNotes : NO_KEYS;
 
@@ -438,24 +541,35 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <Logo />
-        <div
-          className={[
-            'midi-status',
-            midiStatus === 'ready' && 'ok',
-            (midiStatus === 'denied' || midiStatus === 'unsupported') && 'bad',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          <span className="dot" aria-hidden />
-          {MIDI_STATUS_TEXT[midiStatus]}
-          {midiStatus === 'ready' && (
-            <span className="device-count">
-              {devices.length > 0
-                ? ` · ${devices.length} device${devices.length > 1 ? 's' : ''}`
-                : ' · no devices'}
-            </span>
-          )}
+        <div className="header-right">
+          <div
+            className={[
+              'midi-status',
+              midiStatus === 'ready' && 'ok',
+              (midiStatus === 'denied' || midiStatus === 'unsupported') && 'bad',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            <span className="dot" aria-hidden />
+            {MIDI_STATUS_TEXT[midiStatus]}
+            {midiStatus === 'ready' && (
+              <span className="device-count">
+                {devices.length > 0
+                  ? ` · ${devices.length} device${devices.length > 1 ? 's' : ''}`
+                  : ' · no devices'}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Settings"
+            title="Settings"
+          >
+            ⚙
+          </button>
         </div>
       </header>
 
@@ -515,6 +629,18 @@ export default function App() {
               label="Sustain"
               hint="Hold notes · pedal CC64"
             />
+            <Toggle
+              checked={recorderMode}
+              onChange={setRecorderMode}
+              label="Recorder"
+              hint="Record & export .mid"
+            />
+            <Toggle
+              checked={songMode}
+              onChange={setSongMode}
+              label="Song mode"
+              hint="Play/practice a .mid"
+            />
             <OctaveControl
               rangeLabel={`${midiToName(low)}–${midiToName(high)}`}
               onDown={() => shiftOctave(-1)}
@@ -539,21 +665,30 @@ export default function App() {
             onMetronome={handleMetronome}
           />
 
-          <TransportPanel
-            recording={recording}
-            recPlaying={recPlaying}
-            recNoteCount={recNoteCount}
-            onRecord={handleRecord}
-            onPlayRec={handlePlayRec}
-            onStop={stopAllPlayback}
-            onExport={handleExport}
-            song={song ? { name: song.name, noteCount: song.notes.length } : null}
-            songPlaying={songPlaying}
-            onLoadSong={handleLoadSong}
-            onPlaySong={handlePlaySong}
-            onStopSong={handleStopSong}
-            onClearSong={handleClearSong}
-          />
+          {recorderMode && (
+            <RecorderPanel
+              recording={recording}
+              recPlaying={recPlaying}
+              recNoteCount={recNoteCount}
+              onRecord={handleRecord}
+              onPlayRec={handlePlayRec}
+              onStop={stopAllPlayback}
+              onExport={handleExport}
+            />
+          )}
+
+          {songMode && (
+            <SongPanel
+              song={song ? { name: song.name, noteCount: song.notes.length } : null}
+              songPlaying={songPlaying}
+              practice={practice}
+              onLoadSong={handleLoadSong}
+              onPlaySong={handlePlaySong}
+              onStopSong={handleStopSong}
+              onClearSong={handleClearSong}
+              onPracticeChange={setPractice}
+            />
+          )}
 
           {chordDetect && (
             <DetectedChord detected={detected} heldCount={heldNotes.size} />
@@ -576,29 +711,57 @@ export default function App() {
               <span className="legend-item">
                 <span className="swatch chord" /> Chord
               </span>
+              {songMode && (
+                <span className="legend-item">
+                  <span className="swatch target" /> To play
+                </span>
+              )}
             </div>
-            <div className="stage">
-              <div className="stage-inner">
-                {songPlaying && song ? (
-                  <SongRoll
-                    notes={song.notes}
-                    getTime={songTime}
+            <div
+              className={`stage-wrap ${fullscreen ? 'is-fullscreen' : ''}`}
+              ref={stageWrapRef}
+            >
+              <button
+                type="button"
+                className="icon-btn fs-btn"
+                onClick={toggleFullscreen}
+                aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              >
+                {fullscreen ? '✕' : '⛶'}
+              </button>
+              <div className="stage">
+                <div className="stage-inner">
+                  {songPlaying && song ? (
+                    <SongRoll
+                      notes={song.notes}
+                      getTime={songTime}
+                      low={low}
+                      high={high}
+                      whiteColor={colors.noteWhite}
+                      blackColor={colors.noteBlack}
+                    />
+                  ) : (
+                    noteWaterfall && (
+                      <NoteWaterfall
+                        engine={engine}
+                        low={low}
+                        high={high}
+                        whiteColor={colors.noteWhite}
+                        blackColor={colors.noteBlack}
+                      />
+                    )
+                  )}
+                  <PianoKeyboard
                     low={low}
                     high={high}
+                    activeKeys={activeKeys}
+                    chordKeys={chordKeys}
+                    targetKeys={targetKeys}
+                    onPress={handlePress}
+                    onRelease={handleRelease}
                   />
-                ) : (
-                  noteWaterfall && (
-                    <NoteWaterfall engine={engine} low={low} high={high} />
-                  )
-                )}
-                <PianoKeyboard
-                  low={low}
-                  high={high}
-                  activeKeys={activeKeys}
-                  chordKeys={chordKeys}
-                  onPress={handlePress}
-                  onRelease={handleRelease}
-                />
+                </div>
               </div>
             </div>
           </section>
@@ -617,6 +780,13 @@ export default function App() {
       </footer>
 
       <Changelog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        colors={colors}
+        onColorChange={handleColorChange}
+        onReset={handleResetColors}
+      />
     </div>
   );
 }

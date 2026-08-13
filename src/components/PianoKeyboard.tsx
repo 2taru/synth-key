@@ -11,6 +11,8 @@ interface Props {
   activeKeys: Set<number>;
   /** Notes highlighted by the chord lookup — a distinct color. */
   chordKeys: Set<number>;
+  /** Notes to play, highlighted during song / practice mode. */
+  targetKeys?: Set<number>;
   onPress?: (midi: number, velocity: number) => void;
   onRelease?: (midi: number) => void;
 }
@@ -37,11 +39,14 @@ function velocityFromPointer(e: ReactPointerEvent<HTMLDivElement>): number {
  * positioned over the gaps between them. Purely presentational — it renders
  * whatever `activeKeys` / `chordKeys` it is given.
  */
+const EMPTY: Set<number> = new Set();
+
 function PianoKeyboardBase({
   low,
   high,
   activeKeys,
   chordKeys,
+  targetKeys = EMPTY,
   onPress,
   onRelease,
 }: Props) {
@@ -68,8 +73,9 @@ function PianoKeyboardBase({
     [
       'key',
       base,
-      activeKeys.has(m) && 'active',
+      targetKeys.has(m) && 'target',
       chordKeys.has(m) && 'chord',
+      activeKeys.has(m) && 'active',
     ]
       .filter(Boolean)
       .join(' ');

@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react';
 import type { AudioEngine } from '../audio/audioEngine';
 import { isBlackKey, keyGeometry } from '../audio/notes';
+import { hexToRgb } from '../settings';
 import { roundRectPath } from './roundRect';
 
 interface Props {
   engine: AudioEngine;
   low: number;
   high: number;
+  whiteColor: string;
+  blackColor: string;
 }
 
 interface Segment {
@@ -19,26 +22,25 @@ interface Segment {
 }
 
 const SPEED = 130; // px per second the notes rise
-const HEIGHT = 220; // canvas height in CSS px
-
-/** Colors as "r,g,b" — white-key notes accent blue, black-key notes violet. */
-const WHITE_RGB = '108,140,255';
-const BLACK_RGB = '139,92,246';
 
 /**
  * A live "piano roll": every note played rises from the keyboard line and
  * scrolls up, its length tracking how long the note is held and its brightness
  * its velocity. Subscribes straight to the engine's note events.
  */
-export function NoteWaterfall({ engine, low, high }: Props) {
+export function NoteWaterfall({ engine, low, high, whiteColor, blackColor }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const segmentsRef = useRef<Segment[]>([]);
   const activeRef = useRef<Map<number, Segment>>(new Map());
   const geomRef = useRef(keyGeometry(low, high));
+  const colorsRef = useRef({ white: hexToRgb(whiteColor), black: hexToRgb(blackColor) });
 
   useEffect(() => {
     geomRef.current = keyGeometry(low, high);
   }, [low, high]);
+  useEffect(() => {
+    colorsRef.current = { white: hexToRgb(whiteColor), black: hexToRgb(blackColor) };
+  }, [whiteColor, blackColor]);
 
   // Collect note events into rising segments.
   useEffect(() => {
@@ -107,7 +109,7 @@ export function NoteWaterfall({ engine, low, high }: Props) {
         const barH = Math.max(3, bottom - y);
         const x = s.left * w + 1;
         const bw = Math.max(2, s.width * w - 2);
-        const rgb = s.black ? BLACK_RGB : WHITE_RGB;
+        const rgb = s.black ? colorsRef.current.black : colorsRef.current.white;
         const alpha = 0.4 + 0.6 * (s.velocity / 127);
 
         ctx.fillStyle = `rgba(${rgb},${alpha})`;
@@ -137,5 +139,5 @@ export function NoteWaterfall({ engine, low, high }: Props) {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="waterfall" style={{ height: HEIGHT }} />;
+  return <canvas ref={canvasRef} className="waterfall" />;
 }

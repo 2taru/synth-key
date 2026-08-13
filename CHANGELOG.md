@@ -5,6 +5,30 @@ All notable changes to **Synth Key** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-08-13
+
+### Added
+- Recording & playback — capture what you play (notes, timing, velocity), play it
+  back through the engine, and export it as a Standard MIDI (`.mid`) file.
+- Song mode — load a `.mid` file and watch its notes fall toward the keyboard
+  (Synthesia-style) while it plays; the octave window auto-centers on the song.
+- Mixer — master volume and a reverb send (procedural impulse response).
+- Metronome & tempo — a click track with adjustable BPM.
+
+## [0.5.0] - 2026-08-13
+
+### Added
+- Note waterfall — a live "piano roll" visualizer: every note played rises from
+  the keyboard line, its length tracking how long it's held and its brightness
+  its velocity. Toggle it on with "Note waterfall".
+- Velocity sensitivity for the on-screen keyboard: clicking lower on a key plays
+  louder (and pen/touch use real pressure), matching how MIDI velocity already
+  worked.
+
+### Changed
+- Note events now support multiple subscribers internally, so the visualizer,
+  chord detection, octave-follow and waterfall can all react independently.
+
 ## [0.4.0] - 2026-08-13
 
 ### Added
@@ -61,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional 49-key keyboard visualizer that highlights played keys.
 - Chord visualizer: type any chord (parsed with `tonal`) and highlight its notes.
 
+[0.6.0]: #060---2026-08-13
+[0.5.0]: #050---2026-08-13
 [0.4.0]: #040---2026-08-13
 [0.3.1]: #031---2026-08-13
 [0.3.0]: #030---2026-08-13

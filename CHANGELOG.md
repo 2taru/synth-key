@@ -5,6 +5,30 @@ All notable changes to **Synth Key** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-08-13
+
+### Added
+- Settings menu (⚙ in the header) to customize the app's colors — accent, played
+  keys, to-play keys, chord keys, and the waterfall/song note colors — applied
+  live across the UI and canvases.
+- Fullscreen mode for the stage (⛶): the note waterfall / song roll grows to fill
+  the screen with the keyboard anchored at the bottom.
+- Settings persistence — colors, mixer levels, tempo and display toggles are saved
+  to `localStorage` and restored on next visit.
+
+## [0.7.0] - 2026-08-13
+
+### Added
+- Practice mode — in Song mode, falling notes now wait at the keyboard line until
+  you play the right key(s), then advance (Synthesia "wait" mode).
+- Key highlighting — the keys you need to play light up in a distinct color during
+  Song mode (the notes currently sounding in auto-play, or the next step to hit in
+  practice).
+
+### Changed
+- Recording is now its own toggle-revealed feature ("Recorder"), separate from
+  Song mode; each has its own panel.
+
 ## [0.6.0] - 2026-08-13
 
 ### Added
@@ -85,6 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional 49-key keyboard visualizer that highlights played keys.
 - Chord visualizer: type any chord (parsed with `tonal`) and highlight its notes.
 
+[0.8.0]: #080---2026-08-13
+[0.7.0]: #070---2026-08-13
 [0.6.0]: #060---2026-08-13
 [0.5.0]: #050---2026-08-13
 [0.4.0]: #040---2026-08-13

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { isBlackKey, keyGeometry } from '../audio/notes';
 import type { SeqNote } from '../audio/sequence';
+import { hexToRgb } from '../settings';
 import { roundRectPath } from './roundRect';
 
 interface Props {
@@ -9,20 +10,20 @@ interface Props {
   getTime: () => number;
   low: number;
   high: number;
+  whiteColor: string;
+  blackColor: string;
 }
 
 const SPEED = 130; // px per second
-const HEIGHT = 220;
-const WHITE_RGB = '108,140,255';
-const BLACK_RGB = '139,92,246';
 
 /** Falling-note ("Synthesia") view: notes descend and reach the keyboard line
  *  exactly at their scheduled time. */
-export function SongRoll({ notes, getTime, low, high }: Props) {
+export function SongRoll({ notes, getTime, low, high, whiteColor, blackColor }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const geomRef = useRef(keyGeometry(low, high));
   const notesRef = useRef(notes);
   const timeRef = useRef(getTime);
+  const colorsRef = useRef({ white: hexToRgb(whiteColor), black: hexToRgb(blackColor) });
 
   useEffect(() => {
     geomRef.current = keyGeometry(low, high);
@@ -33,6 +34,9 @@ export function SongRoll({ notes, getTime, low, high }: Props) {
   useEffect(() => {
     timeRef.current = getTime;
   }, [getTime]);
+  useEffect(() => {
+    colorsRef.current = { white: hexToRgb(whiteColor), black: hexToRgb(blackColor) };
+  }, [whiteColor, blackColor]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -73,7 +77,7 @@ export function SongRoll({ notes, getTime, low, high }: Props) {
         if (drawBottom <= 0 || drawTop >= h) continue;
 
         const black = isBlackKey(n.midi);
-        const rgb = black ? BLACK_RGB : WHITE_RGB;
+        const rgb = black ? colorsRef.current.black : colorsRef.current.white;
         const active = t >= n.start && t <= n.start + n.duration;
         const alpha = active ? 0.97 : 0.45 + 0.5 * (n.velocity / 127);
         const x = g.left * w + 1;
@@ -97,5 +101,5 @@ export function SongRoll({ notes, getTime, low, high }: Props) {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="waterfall songroll" style={{ height: HEIGHT }} />;
+  return <canvas ref={canvasRef} className="waterfall songroll" />;
 }

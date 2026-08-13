@@ -75,7 +75,11 @@ note-trigger hot path at all.
 - **Metronome & tempo** — click track with adjustable BPM.
 - **Recording** — record what you play and export it as a `.mid` file, or play it back.
 - **Song mode** — load a `.mid` file and watch its notes fall to the keyboard
-  (Synthesia-style) as it plays.
+  (Synthesia-style) as it plays, with the keys to play highlighted. **Practice
+  mode** waits for you to play each note before advancing.
+- **Fullscreen** — expand the waterfall / song roll to fill the screen (⛶).
+- **Settings** — a ⚙ menu to customize the app's colors; all settings persist to
+  `localStorage`.
 
 ## Project layout
 

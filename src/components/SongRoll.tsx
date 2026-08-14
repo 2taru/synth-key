@@ -12,18 +12,19 @@ interface Props {
   high: number;
   whiteColor: string;
   blackColor: string;
+  /** Fall speed in px per second. */
+  speed: number;
 }
-
-const SPEED = 130; // px per second
 
 /** Falling-note ("Synthesia") view: notes descend and reach the keyboard line
  *  exactly at their scheduled time. */
-export function SongRoll({ notes, getTime, low, high, whiteColor, blackColor }: Props) {
+export function SongRoll({ notes, getTime, low, high, whiteColor, blackColor, speed }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const geomRef = useRef(keyGeometry(low, high));
   const notesRef = useRef(notes);
   const timeRef = useRef(getTime);
   const colorsRef = useRef({ white: hexToRgb(whiteColor), black: hexToRgb(blackColor) });
+  const speedRef = useRef(speed);
 
   useEffect(() => {
     geomRef.current = keyGeometry(low, high);
@@ -37,6 +38,9 @@ export function SongRoll({ notes, getTime, low, high, whiteColor, blackColor }: 
   useEffect(() => {
     colorsRef.current = { white: hexToRgb(whiteColor), black: hexToRgb(blackColor) };
   }, [whiteColor, blackColor]);
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -63,15 +67,16 @@ export function SongRoll({ notes, getTime, low, high, whiteColor, blackColor }: 
       ctx.clearRect(0, 0, w, h);
 
       const geom = geomRef.current;
-      const lookahead = h / SPEED + 1;
+      const speed = speedRef.current;
+      const lookahead = h / speed + 1;
       for (const n of notesRef.current) {
         if (n.start - t > lookahead) continue; // too far in the future
         if (t - (n.start + n.duration) > 0.5) continue; // already gone
         const g = geom.get(n.midi);
         if (!g) continue; // outside the visible window
 
-        const bottom = h + (t - n.start) * SPEED;
-        const top = h + (t - (n.start + n.duration)) * SPEED;
+        const bottom = h + (t - n.start) * speed;
+        const top = h + (t - (n.start + n.duration)) * speed;
         const drawTop = Math.max(0, top);
         const drawBottom = Math.min(h, bottom);
         if (drawBottom <= 0 || drawTop >= h) continue;

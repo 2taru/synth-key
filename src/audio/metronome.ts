@@ -1,18 +1,26 @@
 /**
  * A sample-accurate metronome using the Web Audio clock with a look-ahead
- * scheduler. Clicks are short oscillator blips (accent on beat 1 of 4).
+ * scheduler. Clicks are short oscillator blips, with a configurable time
+ * signature and independent strong- / weak-beat playback.
  */
+
+const NOTE_VALUES = [1, 2, 4, 8, 16];
+
 export class Metronome {
   private readonly ctx: AudioContext;
   private readonly out: AudioNode;
   private bpm = 120;
+  private beatsPerBar = 4;
+  private noteValue = 4; // denominator of the time signature
+  private accentStrong = true; // play + accent the downbeat
+  private playWeak = true; // play the weak beats
   private running = false;
   private nextNoteTime = 0;
   private beat = 0;
   private timer: number | null = null;
 
-  /** Fired (approximately) on each audible beat, for a UI flash. */
-  onBeat: ((beat: number) => void) | null = null;
+  /** Fired (approximately) on each beat with its index within the bar, for a UI flash. */
+  onBeat: ((beatInBar: number) => void) | null = null;
 
   constructor(ctx: AudioContext, out: AudioNode) {
     this.ctx = ctx;
@@ -25,6 +33,19 @@ export class Metronome {
 
   setBpm(bpm: number): void {
     this.bpm = Math.max(20, Math.min(300, Math.round(bpm)));
+  }
+
+  setTimeSignature(beats: number, noteValue: number): void {
+    this.beatsPerBar = Math.max(1, Math.min(32, Math.round(beats) || 4));
+    this.noteValue = NOTE_VALUES.includes(noteValue) ? noteValue : 4;
+  }
+
+  setAccentStrong(on: boolean): void {
+    this.accentStrong = on;
+  }
+
+  setPlayWeak(on: boolean): void {
+    this.playWeak = on;
   }
 
   start(): void {
@@ -43,14 +64,25 @@ export class Metronome {
     }
   }
 
+  /** Duration of one beat in seconds. BPM counts quarter notes, so the beat
+   *  scales with the denominator (e.g. 4/8 → half-length beats). */
+  private beatDuration(): number {
+    return (60 / this.bpm) * (4 / this.noteValue);
+  }
+
   private scheduler = (): void => {
     while (this.nextNoteTime < this.ctx.currentTime + 0.12) {
-      this.scheduleClick(this.nextNoteTime, this.beat % 4 === 0);
-      const beatIndex = this.beat;
+      const beatInBar = this.beat % this.beatsPerBar;
+      const isDownbeat = beatInBar === 0;
+      const shouldClick = isDownbeat ? this.accentStrong : this.playWeak;
+      if (shouldClick) this.scheduleClick(this.nextNoteTime, isDownbeat);
+
+      const idx = beatInBar;
       const delayMs = Math.max(0, (this.nextNoteTime - this.ctx.currentTime) * 1000);
-      window.setTimeout(() => this.onBeat?.(beatIndex % 4), delayMs);
+      window.setTimeout(() => this.onBeat?.(idx), delayMs);
+
       this.beat += 1;
-      this.nextNoteTime += 60 / this.bpm;
+      this.nextNoteTime += this.beatDuration();
     }
     if (this.running) this.timer = window.setTimeout(this.scheduler, 25);
   };

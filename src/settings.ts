@@ -5,6 +5,10 @@ export interface Colors {
   target: string; // song "to play" highlight (--target)
   noteWhite: string; // waterfall/song note color for white keys
   noteBlack: string; // waterfall/song note color for black keys
+  bgBase: string; // app background (--bg)
+  bgPanel: string; // panel background (--bg-panel)
+  stageTop: string; // waterfall / song-roll gradient top (--stage-top)
+  stageBottom: string; // waterfall / song-roll gradient bottom (--stage-bottom)
 }
 
 export interface Settings {
@@ -19,6 +23,22 @@ export interface Settings {
   chordLookup: boolean;
   recorderMode: boolean;
   songMode: boolean;
+  /** Lowest visible octave (C of this octave is the bottom key). */
+  lowOctave: number;
+  /** Highest visible octave (C of this octave is the top key). */
+  highOctave: number;
+  /** On-screen key height in pixels (resizable by dragging). */
+  keyHeight: number;
+  /** Waterfall / song-roll scroll speed in px per second. */
+  noteSpeed: number;
+  /** Metronome time-signature numerator (beats per bar). */
+  timeSigNum: number;
+  /** Metronome time-signature denominator (note value: 1,2,4,8,16). */
+  timeSigDen: number;
+  /** Play (and accent) the downbeat. */
+  accentStrong: boolean;
+  /** Play the weak beats (everything but the downbeat). */
+  playWeak: boolean;
 }
 
 export const DEFAULT_COLORS: Colors = {
@@ -28,6 +48,10 @@ export const DEFAULT_COLORS: Colors = {
   target: '#6c8cff',
   noteWhite: '#6c8cff',
   noteBlack: '#8b5cf6',
+  bgBase: '#0e0f13',
+  bgPanel: '#171922',
+  stageTop: '#1a1f3d',
+  stageBottom: '#10132a',
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -42,6 +66,14 @@ export const DEFAULT_SETTINGS: Settings = {
   chordLookup: false,
   recorderMode: false,
   songMode: false,
+  lowOctave: 2, // C2 .. C6 → the classic 49-key window
+  highOctave: 6,
+  keyHeight: 190,
+  noteSpeed: 130,
+  timeSigNum: 4,
+  timeSigDen: 4,
+  accentStrong: true,
+  playWeak: true,
 };
 
 const KEY = 'synth-key:settings';
@@ -78,6 +110,10 @@ export function applyColors(c: Colors): void {
   root.setProperty('--target', c.target);
   root.setProperty('--note-white', c.noteWhite);
   root.setProperty('--note-black', c.noteBlack);
+  root.setProperty('--bg', c.bgBase);
+  root.setProperty('--bg-panel', c.bgPanel);
+  root.setProperty('--stage-top', c.stageTop);
+  root.setProperty('--stage-bottom', c.stageBottom);
 }
 
 /** Convert "#rrggbb" (or "#rgb") to an "r,g,b" string for canvas rgba(). */

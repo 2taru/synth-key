@@ -10,6 +10,8 @@ interface Props {
   high: number;
   whiteColor: string;
   blackColor: string;
+  /** Rise speed in px per second. */
+  speed: number;
 }
 
 interface Segment {
@@ -21,19 +23,18 @@ interface Segment {
   end: number | null; // null while still held
 }
 
-const SPEED = 130; // px per second the notes rise
-
 /**
  * A live "piano roll": every note played rises from the keyboard line and
  * scrolls up, its length tracking how long the note is held and its brightness
  * its velocity. Subscribes straight to the engine's note events.
  */
-export function NoteWaterfall({ engine, low, high, whiteColor, blackColor }: Props) {
+export function NoteWaterfall({ engine, low, high, whiteColor, blackColor, speed }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const segmentsRef = useRef<Segment[]>([]);
   const activeRef = useRef<Map<number, Segment>>(new Map());
   const geomRef = useRef(keyGeometry(low, high));
   const colorsRef = useRef({ white: hexToRgb(whiteColor), black: hexToRgb(blackColor) });
+  const speedRef = useRef(speed);
 
   useEffect(() => {
     geomRef.current = keyGeometry(low, high);
@@ -41,6 +42,9 @@ export function NoteWaterfall({ engine, low, high, whiteColor, blackColor }: Pro
   useEffect(() => {
     colorsRef.current = { white: hexToRgb(whiteColor), black: hexToRgb(blackColor) };
   }, [whiteColor, blackColor]);
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
 
   // Collect note events into rising segments.
   useEffect(() => {
@@ -97,14 +101,15 @@ export function NoteWaterfall({ engine, low, high, whiteColor, blackColor }: Pro
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
+      const speed = speedRef.current;
       const kept: Segment[] = [];
       for (const s of segmentsRef.current) {
         const end = s.end ?? now;
-        const bottom = h - ((now - end) * SPEED) / 1000;
+        const bottom = h - ((now - end) * speed) / 1000;
         if (bottom < 0) continue; // fully scrolled off the top
         kept.push(s);
 
-        const top = h - ((now - s.start) * SPEED) / 1000;
+        const top = h - ((now - s.start) * speed) / 1000;
         const y = Math.max(0, top);
         const barH = Math.max(3, bottom - y);
         const x = s.left * w + 1;

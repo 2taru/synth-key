@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { AudioEngine, DEFAULT_INSTRUMENT } from './audio/audioEngine';
 import { midiToName } from './audio/notes';
 import { useMidi, type MidiStatus } from './midi/useMidi';
@@ -25,34 +26,28 @@ import { ModulationSlider } from './components/ModulationSlider';
 import { Logo } from './components/Logo';
 import { Changelog } from './components/Changelog';
 import { SettingsModal } from './components/SettingsModal';
+import { FullscreenToolbar } from './components/FullscreenToolbar';
 import { APP_VERSION } from './changelog';
 import {
   loadSettings,
   saveSettings,
   applyColors,
   DEFAULT_COLORS,
+  DEFAULT_SETTINGS,
   type Colors,
 } from './settings';
 
-// 49-key keyboard window (span of 48 semitones), always starting on a C.
-const KEY_SPAN = 48;
-const DEFAULT_LOW = 36; // C2 .. C6
-const MIN_LOW = 12; // C0
-const MAX_LOW = 72; // C5 .. C9
+// The visible keyboard window is always C-aligned; the user picks the low & high
+// octave (e.g. C2–C6). C0..C8 is the overall allowed span.
+const MIN_OCTAVE = 0;
+const MAX_OCTAVE = 8;
+const MIN_MIDI = (MIN_OCTAVE + 1) * 12; // C0 = 12
+const MAX_MIDI = (MAX_OCTAVE + 1) * 12; // C8 = 108
+const octaveToMidi = (o: number): number => (o + 1) * 12;
+const midiToOctave = (m: number): number => Math.floor(m / 12) - 1;
 
 const NO_KEYS: Set<number> = new Set();
 const SONG_LEAD_IN = 2; // seconds of fall-in before the first note plays
-
-/**
- * Shift the visible window (octave-aligned) minimally so `midi` falls inside it —
- * used to make the on-screen octave follow what's played on a MIDI keyboard.
- */
-function nextLowForNote(low: number, midi: number): number {
-  let nl = low;
-  while (midi < nl && nl > MIN_LOW) nl -= 12;
-  while (midi > nl + KEY_SPAN && nl < MAX_LOW) nl += 12;
-  return Math.max(MIN_LOW, Math.min(MAX_LOW, nl));
-}
 
 const MIDI_STATUS_TEXT: Record<MidiStatus, string> = {
   idle: 'Initializing…',
@@ -83,6 +78,9 @@ export default function App() {
   const [colors, setColors] = useState<Colors>(s0.colors);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [toolbarMin, setToolbarMin] = useState(false);
+  const [keyHeight, setKeyHeight] = useState(s0.keyHeight);
+  const [noteSpeed, setNoteSpeed] = useState(s0.noteSpeed);
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
 
   const [instruments, setInstruments] = useState<InstrumentItem[]>([
@@ -96,9 +94,12 @@ export default function App() {
   const [chordLookup, setChordLookup] = useState(s0.chordLookup);
   const [heldNotes, setHeldNotes] = useState<Set<number>>(() => new Set());
 
-  const [low, setLow] = useState(DEFAULT_LOW);
-  const high = low + KEY_SPAN;
+  const [low, setLow] = useState(() => octaveToMidi(s0.lowOctave));
+  const [high, setHigh] = useState(() => octaveToMidi(s0.highOctave));
   const [followMidi, setFollowMidi] = useState(s0.followMidi);
+  // Latest window for the (stable) MIDI-follow listener to read without re-subscribing.
+  const viewRef = useRef({ low, high });
+  viewRef.current = { low, high };
 
   const [chordSymbol, setChordSymbol] = useState<string | null>(null);
   const [chordError, setChordError] = useState<string | null>(null);
@@ -112,6 +113,11 @@ export default function App() {
   const [reverb, setReverb] = useState(s0.reverb);
   const [bpm, setBpm] = useState(s0.bpm);
   const [metronomeOn, setMetronomeOn] = useState(false);
+  const [timeSigNum, setTimeSigNum] = useState(s0.timeSigNum);
+  const [timeSigDen, setTimeSigDen] = useState(s0.timeSigDen);
+  const [accentStrong, setAccentStrong] = useState(s0.accentStrong);
+  const [playWeak, setPlayWeak] = useState(s0.playWeak);
+  const [beat, setBeat] = useState(-1);
   const [recording, setRecording] = useState(false);
   const [recPlaying, setRecPlaying] = useState(false);
   const [recNoteCount, setRecNoteCount] = useState(0);
@@ -148,7 +154,11 @@ export default function App() {
   useEffect(() => {
     engine.setMasterVolume(s0.master);
     engine.setReverb(s0.reverb);
-    metronomeRef.current?.setBpm(s0.bpm);
+    const m = metronomeRef.current;
+    m?.setBpm(s0.bpm);
+    m?.setTimeSignature(s0.timeSigNum, s0.timeSigDen);
+    m?.setAccentStrong(s0.accentStrong);
+    m?.setPlayWeak(s0.playWeak);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine]);
 
@@ -156,6 +166,21 @@ export default function App() {
   useEffect(() => {
     applyColors(colors);
   }, [colors]);
+
+  // --- Reflect the key height as a CSS variable ---
+  useEffect(() => {
+    document.documentElement.style.setProperty('--key-height', `${keyHeight}px`);
+  }, [keyHeight]);
+
+  // --- Flash the beat indicator on each metronome beat ---
+  useEffect(() => {
+    const m = metronomeRef.current;
+    if (!m) return;
+    m.onBeat = (b) => setBeat(b);
+    return () => {
+      m.onBeat = null;
+    };
+  }, []);
 
   // --- Persist settings to localStorage whenever they change ---
   useEffect(() => {
@@ -171,6 +196,14 @@ export default function App() {
       chordLookup,
       recorderMode,
       songMode,
+      lowOctave: midiToOctave(low),
+      highOctave: midiToOctave(high),
+      keyHeight,
+      noteSpeed,
+      timeSigNum,
+      timeSigDen,
+      accentStrong,
+      playWeak,
     });
   }, [
     colors,
@@ -184,6 +217,14 @@ export default function App() {
     chordLookup,
     recorderMode,
     songMode,
+    low,
+    high,
+    keyHeight,
+    noteSpeed,
+    timeSigNum,
+    timeSigDen,
+    accentStrong,
+    playWeak,
   ]);
 
   // --- Track fullscreen state of the stage ---
@@ -224,8 +265,19 @@ export default function App() {
           return next;
         });
       }
-      // Follow the played octave (no-op re-render when already in view).
-      if (followMidi && on) setLow((l) => nextLowForNote(l, midi));
+      // Follow the played octave: slide the whole window (keeping its span) so
+      // the note falls inside it. No-op re-render when already in view.
+      if (followMidi && on) {
+        const { low: lo, high: hi } = viewRef.current;
+        const span = hi - lo;
+        let nl = lo;
+        while (midi < nl && nl - 12 >= MIN_MIDI) nl -= 12;
+        while (midi > nl + span && nl + span + 12 <= MAX_MIDI) nl += 12;
+        if (nl !== lo) {
+          setLow(nl);
+          setHigh(nl + span);
+        }
+      }
     });
   }, [visualizer, chordDetect, followMidi, engine]);
 
@@ -321,9 +373,27 @@ export default function App() {
     [engine],
   );
 
-  // --- Octave shift ---
-  const shiftOctave = useCallback((dir: 1 | -1) => {
-    setLow((l) => Math.max(MIN_LOW, Math.min(MAX_LOW, l + dir * 12)));
+  // --- Octave shift (slides the window, keeping its span) ---
+  const shiftOctave = useCallback(
+    (dir: 1 | -1) => {
+      const delta = dir * 12;
+      if (low + delta < MIN_MIDI || high + delta > MAX_MIDI) return;
+      setLow(low + delta);
+      setHigh(high + delta);
+    },
+    [low, high],
+  );
+
+  // --- Keyboard range (low / high octave selectors) ---
+  const handleLowOctave = useCallback((o: number) => {
+    const nl = octaveToMidi(o);
+    setLow(nl);
+    setHigh((hi) => Math.max(nl + 12, hi)); // always show at least one octave
+  }, []);
+  const handleHighOctave = useCallback((o: number) => {
+    const nh = octaveToMidi(o);
+    setHigh(nh);
+    setLow((lo) => Math.min(nh - 12, lo));
   }, []);
 
   // --- Chord lookup (re-maps into the visible window when the octave changes) ---
@@ -429,12 +499,50 @@ export default function App() {
   const handleMetronome = useCallback(
     (on: boolean) => {
       void engine.resume();
-      if (on) metronomeRef.current?.start();
-      else metronomeRef.current?.stop();
+      if (on) {
+        metronomeRef.current?.start();
+      } else {
+        metronomeRef.current?.stop();
+        setBeat(-1);
+      }
       setMetronomeOn(on);
     },
     [engine],
   );
+  const handleTimeSig = useCallback((num: number, den: number) => {
+    const n = Math.max(1, Math.min(32, Math.round(num) || 4));
+    setTimeSigNum(n);
+    setTimeSigDen(den);
+    metronomeRef.current?.setTimeSignature(n, den);
+  }, []);
+  const handleAccentStrong = useCallback((on: boolean) => {
+    setAccentStrong(on);
+    metronomeRef.current?.setAccentStrong(on);
+  }, []);
+  const handlePlayWeak = useCallback((on: boolean) => {
+    setPlayWeak(on);
+    metronomeRef.current?.setPlayWeak(on);
+  }, []);
+
+  // --- Drag-to-resize the on-screen keys (grab the handle above the keyboard) ---
+  const keyHeightRef = useRef(keyHeight);
+  keyHeightRef.current = keyHeight;
+  const startKeyResize = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = keyHeightRef.current;
+    const onMove = (ev: PointerEvent) => {
+      // Drag up ⇒ taller keys.
+      const nh = Math.max(90, Math.min(420, Math.round(startH - (ev.clientY - startY))));
+      setKeyHeight(nh);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
 
   // --- Recording & playback ---
   const stopAllPlayback = useCallback(() => {
@@ -484,17 +592,20 @@ export default function App() {
           setSong(parsed);
           songRef.current?.load(parsed.notes);
           if (parsed.bpm) handleBpm(parsed.bpm);
-          // Center the 49-key window on the song's note range.
+          // Center the current window (keeping its span) on the song's range.
           if (parsed.notes.length) {
+            const span = high - low;
             const mids = parsed.notes.map((n) => n.midi);
             const center = (Math.min(...mids) + Math.max(...mids)) / 2;
-            const target = Math.round((center - KEY_SPAN / 2) / 12) * 12;
-            setLow(Math.max(MIN_LOW, Math.min(MAX_LOW, target)));
+            const raw = Math.round((center - span / 2) / 12) * 12;
+            const target = Math.max(MIN_MIDI, Math.min(MAX_MIDI - span, raw));
+            setLow(target);
+            setHigh(target + span);
           }
         })
         .catch(() => setSong(null));
     },
-    [handleBpm],
+    [handleBpm, low, high],
   );
 
   const handlePlaySong = useCallback(() => {
@@ -524,7 +635,11 @@ export default function App() {
   const handleColorChange = useCallback((key: keyof Colors, value: string) => {
     setColors((prev) => ({ ...prev, [key]: value }));
   }, []);
-  const handleResetColors = useCallback(() => setColors(DEFAULT_COLORS), []);
+  const handleResetColors = useCallback(() => {
+    setColors(DEFAULT_COLORS);
+    setKeyHeight(DEFAULT_SETTINGS.keyHeight);
+    setNoteSpeed(DEFAULT_SETTINGS.noteSpeed);
+  }, []);
   const toggleFullscreen = useCallback(() => {
     const el = stageWrapRef.current;
     if (!el) return;
@@ -536,6 +651,7 @@ export default function App() {
   }, []);
 
   const activeKeys = visualizer ? heldNotes : NO_KEYS;
+  const rangeLabel = `${midiToName(low)}–${midiToName(high)}`;
 
   return (
     <div className="app">
@@ -642,11 +758,16 @@ export default function App() {
               hint="Play/practice a .mid"
             />
             <OctaveControl
-              rangeLabel={`${midiToName(low)}–${midiToName(high)}`}
+              lowOctave={midiToOctave(low)}
+              highOctave={midiToOctave(high)}
+              minOctave={MIN_OCTAVE}
+              maxOctave={MAX_OCTAVE}
+              onLowOctave={handleLowOctave}
+              onHighOctave={handleHighOctave}
               onDown={() => shiftOctave(-1)}
               onUp={() => shiftOctave(1)}
-              canDown={low > MIN_LOW}
-              canUp={low < MAX_LOW}
+              canDown={low > MIN_MIDI}
+              canUp={high < MAX_MIDI}
               follow={followMidi}
               onFollowChange={setFollowMidi}
             />
@@ -663,6 +784,14 @@ export default function App() {
             onBpm={handleBpm}
             metronomeOn={metronomeOn}
             onMetronome={handleMetronome}
+            timeSigNum={timeSigNum}
+            timeSigDen={timeSigDen}
+            onTimeSig={handleTimeSig}
+            accentStrong={accentStrong}
+            onAccentStrong={handleAccentStrong}
+            playWeak={playWeak}
+            onPlayWeak={handlePlayWeak}
+            beat={beat}
           />
 
           {recorderMode && (
@@ -721,15 +850,43 @@ export default function App() {
               className={`stage-wrap ${fullscreen ? 'is-fullscreen' : ''}`}
               ref={stageWrapRef}
             >
-              <button
-                type="button"
-                className="icon-btn fs-btn"
-                onClick={toggleFullscreen}
-                aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-                title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              >
-                {fullscreen ? '✕' : '⛶'}
-              </button>
+              {fullscreen ? (
+                <FullscreenToolbar
+                  visualizer={visualizer}
+                  onVisualizer={setVisualizer}
+                  noteWaterfall={noteWaterfall}
+                  onNoteWaterfall={setNoteWaterfall}
+                  chordDetect={chordDetect}
+                  onChordDetect={setChordDetect}
+                  chordLookup={chordLookup}
+                  onChordLookup={handleChordLookup}
+                  sustain={sustain}
+                  onSustain={handleSustain}
+                  metronomeOn={metronomeOn}
+                  onMetronome={handleMetronome}
+                  recording={recording}
+                  recPlaying={recPlaying}
+                  onRecord={handleRecord}
+                  rangeLabel={rangeLabel}
+                  onDown={() => shiftOctave(-1)}
+                  onUp={() => shiftOctave(1)}
+                  canDown={low > MIN_MIDI && !followMidi}
+                  canUp={high < MAX_MIDI && !followMidi}
+                  minimized={toolbarMin}
+                  onToggleMin={() => setToolbarMin((m) => !m)}
+                  onExit={toggleFullscreen}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="icon-btn fs-btn"
+                  onClick={toggleFullscreen}
+                  aria-label="Fullscreen"
+                  title="Fullscreen"
+                >
+                  ⛶
+                </button>
+              )}
               <div className="stage">
                 <div className="stage-inner">
                   {songPlaying && song ? (
@@ -740,6 +897,7 @@ export default function App() {
                       high={high}
                       whiteColor={colors.noteWhite}
                       blackColor={colors.noteBlack}
+                      speed={noteSpeed}
                     />
                   ) : (
                     noteWaterfall && (
@@ -749,9 +907,19 @@ export default function App() {
                         high={high}
                         whiteColor={colors.noteWhite}
                         blackColor={colors.noteBlack}
+                        speed={noteSpeed}
                       />
                     )
                   )}
+                  <div
+                    className="key-resizer"
+                    onPointerDown={startKeyResize}
+                    title="Drag to resize the keys"
+                    role="separator"
+                    aria-label="Resize keys"
+                  >
+                    <span className="key-resizer-grip" aria-hidden />
+                  </div>
                   <PianoKeyboard
                     low={low}
                     high={high}
@@ -786,6 +954,10 @@ export default function App() {
         colors={colors}
         onColorChange={handleColorChange}
         onReset={handleResetColors}
+        keyHeight={keyHeight}
+        onKeyHeight={setKeyHeight}
+        noteSpeed={noteSpeed}
+        onNoteSpeed={setNoteSpeed}
       />
     </div>
   );

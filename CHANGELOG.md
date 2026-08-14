@@ -5,6 +5,28 @@ All notable changes to **Synth Key** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-08-14
+
+### Added
+- Fullscreen toolbar — a top bar in fullscreen to toggle every runtime control
+  (visualizer, waterfall, chord detect/lookup, sustain, metronome, recording) and
+  shift octaves, without leaving fullscreen. Collapses to a slim handle.
+- Keyboard range — pick the lowest and highest octave (C0..C8, e.g. C1–C7) instead
+  of a fixed 49-key window; the octave shift and Follow-MIDI now slide that range.
+- Drag-to-resize keys — a handle above the keyboard resizes the on-screen key
+  height by dragging (also a slider in Settings); persisted.
+- Metronome time signature — numerator/denominator with 4/4, 3/4, 2/4, 6/8 presets
+  and custom values, independent Strong-beat and Weak-beats playback toggles, and a
+  live beat indicator.
+- Background customization — App, Panel, and waterfall/song-roll gradient (top &
+  bottom) colors in Settings, applied live.
+- Note speed — adjustable waterfall / song-roll scroll speed in Settings.
+
+### Changed
+- Settings "Reset to defaults" now also restores key height and note speed.
+- The Mixer panel is now "Mixer & metronome" and hosts the expanded metronome
+  controls.
+
 ## [0.8.0] - 2026-08-13
 
 ### Added

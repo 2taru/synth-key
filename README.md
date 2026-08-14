@@ -55,7 +55,11 @@ note-trigger hot path at all.
   FluidR3_GM bank) and make it active.
 - **Instrument manager** — load by name too, switch the active instrument, and
   delete loaded custom ones (the default piano stays).
-- **Octave shift** — move the 49-key window up/down an octave (C0 … C9).
+- **Keyboard range & octave shift** — pick the lowest and highest octave shown
+  (C0 … C8, e.g. C1–C7), shift the whole window up/down an octave, or let it
+  Follow the octave you play on a MIDI keyboard.
+- **Resizable keys** — drag the handle above the keyboard (or the Settings slider)
+  to set the on-screen key height.
 - **Pitch bend** — MIDI pitch-wheel bends every sounding note (±2 semitones) with
   a live on-screen meter.
 - **Sustain pedal (CC64)** — holds released notes until the pedal lifts; also an
@@ -72,14 +76,17 @@ note-trigger hot path at all.
 - **Chord lookup** — type any chord (`Am`, `Cmaj7`, `G7b9`, `F#m11b5`) and see its
   notes highlighted in a distinct color; the highlight follows the octave shift.
 - **Mixer** — master volume and a reverb send.
-- **Metronome & tempo** — click track with adjustable BPM.
+- **Metronome & tempo** — click track with adjustable BPM, a time signature
+  (4/4, 3/4, 2/4, 6/8 or custom), independent strong- and weak-beat playback, and
+  a live beat indicator.
 - **Recording** — record what you play and export it as a `.mid` file, or play it back.
 - **Song mode** — load a `.mid` file and watch its notes fall to the keyboard
   (Synthesia-style) as it plays, with the keys to play highlighted. **Practice
   mode** waits for you to play each note before advancing.
-- **Fullscreen** — expand the waterfall / song roll to fill the screen (⛶).
-- **Settings** — a ⚙ menu to customize the app's colors; all settings persist to
-  `localStorage`.
+- **Fullscreen** — expand the waterfall / song roll to fill the screen (⛶), with a
+  collapsible top toolbar exposing every runtime control (including recording).
+- **Settings** — a ⚙ menu to customize the app's colors and backgrounds, key
+  height and note speed; all settings persist to `localStorage`.
 
 ## Project layout
 

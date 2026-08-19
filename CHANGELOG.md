@@ -5,6 +5,27 @@ All notable changes to **Synth Key** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-08-19
+
+### Added
+- Scales & keys — pick a tonic and one of 12 scales/modes to highlight the scale
+  on the keyboard (dot markers that coexist with the played/chord/target fills,
+  tonic glowing) and see its diatonic triads with roman numerals; click a chord
+  or "Play scale" to hear it.
+- Ear training — interval and chord quizzes: the app plays a random sound
+  (intervals melodic, chords harmonic), you guess from the options, with a
+  running score and correct/wrong reveal.
+- Reference — a collapsible cheat-sheet of the intervals and common chord
+  formulas with their interval makeup.
+- Transpose — shift the sounded pitch ±12 semitones (the keys you press stay
+  the same).
+- Amplitude envelope — attack, decay, sustain and release controls to reshape
+  each note from plucks to pads.
+- Effects — delay (echo) and chorus sends, alongside the existing reverb.
+- Split / Layer — stack a second instrument on every key, or map it below a
+  split point (e.g. bass in the left hand).
+- WAV export — bounce a recording to a .wav audio file (rendered offline).
+
 ## [0.10.0] - 2026-08-19
 
 ### Added

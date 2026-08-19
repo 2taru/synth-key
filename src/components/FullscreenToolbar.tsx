@@ -5,6 +5,8 @@ interface Props {
   onNoteWaterfall: (v: boolean) => void;
   chordDetect: boolean;
   onChordDetect: (v: boolean) => void;
+  intervalDetect: boolean;
+  onIntervalDetect: (v: boolean) => void;
   chordLookup: boolean;
   onChordLookup: (v: boolean) => void;
   sustain: boolean;
@@ -60,6 +62,8 @@ export function FullscreenToolbar({
   onNoteWaterfall,
   chordDetect,
   onChordDetect,
+  intervalDetect,
+  onIntervalDetect,
   chordLookup,
   onChordLookup,
   sustain,
@@ -116,8 +120,14 @@ export function FullscreenToolbar({
         <Pill
           active={chordDetect}
           onClick={() => onChordDetect(!chordDetect)}
-          label="Detect"
+          label="Chords"
           title="Chord detection"
+        />
+        <Pill
+          active={intervalDetect}
+          onClick={() => onIntervalDetect(!intervalDetect)}
+          label="Intervals"
+          title="Interval detection"
         />
         <Pill
           active={chordLookup}

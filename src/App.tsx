@@ -4,10 +4,13 @@ import { AudioEngine, DEFAULT_INSTRUMENT } from './audio/audioEngine';
 import { midiToName } from './audio/notes';
 import { useMidi, type MidiStatus } from './midi/useMidi';
 import { chordToMidi, detectChord, type ChordResult } from './music/chords';
+import { detectIntervals } from './music/intervals';
 import { PianoKeyboard } from './components/PianoKeyboard';
 import { NoteWaterfall } from './components/NoteWaterfall';
 import { SongRoll } from './components/SongRoll';
 import { MixerPanel } from './components/MixerPanel';
+import { MetronomePanel } from './components/MetronomePanel';
+import { Panel } from './components/Panel';
 import { RecorderPanel } from './components/RecorderPanel';
 import { SongPanel } from './components/SongPanel';
 import { Metronome } from './audio/metronome';
@@ -18,7 +21,7 @@ import { parseMidiFile, downloadMidi, type ParsedSong } from './music/midiFile';
 import { InstrumentPanel, type InstrumentItem } from './components/InstrumentPanel';
 import { SoundLibrary } from './components/SoundLibrary';
 import { ChordPanel } from './components/ChordPanel';
-import { DetectedChord } from './components/DetectedChord';
+import { NowPlaying } from './components/NowPlaying';
 import { Toggle } from './components/Toggle';
 import { OctaveControl } from './components/OctaveControl';
 import { PitchBendMeter } from './components/PitchBendMeter';
@@ -91,6 +94,7 @@ export default function App() {
   const [visualizer, setVisualizer] = useState(s0.visualizer);
   const [noteWaterfall, setNoteWaterfall] = useState(s0.noteWaterfall);
   const [chordDetect, setChordDetect] = useState(s0.chordDetect);
+  const [intervalDetect, setIntervalDetect] = useState(s0.intervalDetect);
   const [chordLookup, setChordLookup] = useState(s0.chordLookup);
   const [heldNotes, setHeldNotes] = useState<Set<number>>(() => new Set());
 
@@ -193,6 +197,7 @@ export default function App() {
       visualizer,
       noteWaterfall,
       chordDetect,
+      intervalDetect,
       chordLookup,
       recorderMode,
       songMode,
@@ -214,6 +219,7 @@ export default function App() {
     visualizer,
     noteWaterfall,
     chordDetect,
+    intervalDetect,
     chordLookup,
     recorderMode,
     songMode,
@@ -252,7 +258,7 @@ export default function App() {
   // --- Observe notes while any feature needs them (held-note tracking for the
   //     visualizer/detection, and octave-follow for MIDI sync) ---
   useEffect(() => {
-    const trackHeld = visualizer || chordDetect;
+    const trackHeld = visualizer || chordDetect || intervalDetect;
     if (!trackHeld) setHeldNotes(new Set());
     if (!trackHeld && !followMidi) return;
 
@@ -279,7 +285,7 @@ export default function App() {
         }
       }
     });
-  }, [visualizer, chordDetect, followMidi, engine]);
+  }, [visualizer, chordDetect, intervalDetect, followMidi, engine]);
 
   // --- Reflect the pitch-bend wheel, mod wheel and sustain pedal in the UI ---
   useEffect(() => {
@@ -438,6 +444,18 @@ export default function App() {
   const detected = useMemo(
     () => (chordDetect ? detectChord(heldNotes) : null),
     [chordDetect, heldNotes],
+  );
+
+  // --- Interval analysis from currently held notes ---
+  const intervals = useMemo(
+    () => (intervalDetect ? detectIntervals(heldNotes) : null),
+    [intervalDetect, heldNotes],
+  );
+
+  // --- Intervals of the notes to play next, shown as a practice hint ---
+  const targetIntervals = useMemo(
+    () => (songMode && practice ? detectIntervals(targetKeys) : null),
+    [songMode, practice, targetKeys],
   );
 
   // --- Sound library state ---
@@ -714,49 +732,67 @@ export default function App() {
         </div>
 
         <main className="main">
-          <section className="panel controls">
-            <Toggle
-              checked={visualizer}
-              onChange={setVisualizer}
-              label="Visualizer"
-              hint="Highlight played keys"
-            />
-            <Toggle
-              checked={noteWaterfall}
-              onChange={setNoteWaterfall}
-              label="Note waterfall"
-              hint="Live rising piano roll"
-            />
-            <Toggle
-              checked={chordDetect}
-              onChange={setChordDetect}
-              label="Chord detection"
-              hint="Name the chord you play"
-            />
-            <Toggle
-              checked={chordLookup}
-              onChange={handleChordLookup}
-              label="Chord lookup"
-              hint="Show a chord by name"
-            />
-            <Toggle
-              checked={sustain}
-              onChange={handleSustain}
-              label="Sustain"
-              hint="Hold notes · pedal CC64"
-            />
-            <Toggle
-              checked={recorderMode}
-              onChange={setRecorderMode}
-              label="Recorder"
-              hint="Record & export .mid"
-            />
-            <Toggle
-              checked={songMode}
-              onChange={setSongMode}
-              label="Song mode"
-              hint="Play/practice a .mid"
-            />
+          <Panel id="controls" title="Controls" className="controls">
+            <div className="control-group">
+              <span className="control-group-label">Visualize</span>
+              <Toggle
+                checked={visualizer}
+                onChange={setVisualizer}
+                label="Visualizer"
+                hint="Highlight played keys"
+              />
+              <Toggle
+                checked={noteWaterfall}
+                onChange={setNoteWaterfall}
+                label="Note waterfall"
+                hint="Live rising piano roll"
+              />
+            </div>
+
+            <div className="control-group">
+              <span className="control-group-label">Learn</span>
+              <Toggle
+                checked={chordDetect}
+                onChange={setChordDetect}
+                label="Chord detection"
+                hint="Name the chord you play"
+              />
+              <Toggle
+                checked={intervalDetect}
+                onChange={setIntervalDetect}
+                label="Interval detection"
+                hint="Name & break down intervals"
+              />
+              <Toggle
+                checked={chordLookup}
+                onChange={handleChordLookup}
+                label="Chord lookup"
+                hint="Show a chord by name"
+              />
+            </div>
+
+            <div className="control-group">
+              <span className="control-group-label">Perform</span>
+              <Toggle
+                checked={sustain}
+                onChange={handleSustain}
+                label="Sustain"
+                hint="Hold notes · pedal CC64"
+              />
+              <Toggle
+                checked={recorderMode}
+                onChange={setRecorderMode}
+                label="Recorder"
+                hint="Record & export .mid"
+              />
+              <Toggle
+                checked={songMode}
+                onChange={setSongMode}
+                label="Song mode"
+                hint="Play/practice a .mid"
+              />
+            </div>
+
             <OctaveControl
               lowOctave={midiToOctave(low)}
               highOctave={midiToOctave(high)}
@@ -773,7 +809,7 @@ export default function App() {
             />
             <PitchBendMeter value={bend} />
             <ModulationSlider value={mod} onChange={handleMod} />
-          </section>
+          </Panel>
 
           <MixerPanel
             master={master}
@@ -782,6 +818,9 @@ export default function App() {
             onReverb={handleReverb}
             bpm={bpm}
             onBpm={handleBpm}
+          />
+
+          <MetronomePanel
             metronomeOn={metronomeOn}
             onMetronome={handleMetronome}
             timeSigNum={timeSigNum}
@@ -819,8 +858,14 @@ export default function App() {
             />
           )}
 
-          {chordDetect && (
-            <DetectedChord detected={detected} heldCount={heldNotes.size} />
+          {(chordDetect || intervalDetect) && (
+            <NowPlaying
+              chordDetect={chordDetect}
+              intervalDetect={intervalDetect}
+              detected={detected}
+              intervals={intervals}
+              heldCount={heldNotes.size}
+            />
           )}
 
           {chordLookup && (
@@ -845,6 +890,16 @@ export default function App() {
                   <span className="swatch target" /> To play
                 </span>
               )}
+              {targetIntervals && targetIntervals.stacked.length > 0 && (
+                <span className="legend-intervals" title="Intervals between the notes to play next">
+                  Next intervals:{' '}
+                  {targetIntervals.stacked.map((iv, i) => (
+                    <span key={i} className="legend-iv" title={iv.label}>
+                      {iv.short}
+                    </span>
+                  ))}
+                </span>
+              )}
             </div>
             <div
               className={`stage-wrap ${fullscreen ? 'is-fullscreen' : ''}`}
@@ -858,6 +913,8 @@ export default function App() {
                   onNoteWaterfall={setNoteWaterfall}
                   chordDetect={chordDetect}
                   onChordDetect={setChordDetect}
+                  intervalDetect={intervalDetect}
+                  onIntervalDetect={setIntervalDetect}
                   chordLookup={chordLookup}
                   onChordLookup={handleChordLookup}
                   sustain={sustain}

@@ -1,0 +1,108 @@
+import type { DetectedChord as Detected } from '../music/chords';
+import type { DetectedIntervals, IntervalInfo } from '../music/intervals';
+import { Panel } from './Panel';
+
+interface Props {
+  /** Whether chord naming is enabled. */
+  chordDetect: boolean;
+  /** Whether interval analysis is enabled. */
+  intervalDetect: boolean;
+  detected: Detected | null;
+  intervals: DetectedIntervals | null;
+  /** How many notes are currently held (drives the empty/hint states). */
+  heldCount: number;
+}
+
+function IntervalChip({ info }: { info: IntervalInfo }) {
+  return (
+    <span className="np-chip" title={`${info.label} · ${info.fromNote}→${info.toNote}`}>
+      <span className="np-chip-short">{info.short}</span>
+      <span className="np-chip-label">{info.label}</span>
+    </span>
+  );
+}
+
+/**
+ * The "Now Playing" learning panel. Depending on which analyses are enabled it
+ * names the chord being held, breaks it into its interval stack, or does both at
+ * once — so you can see exactly which intervals a chord is made of.
+ */
+export function NowPlaying({
+  chordDetect,
+  intervalDetect,
+  detected,
+  intervals,
+  heldCount,
+}: Props) {
+  const twoNotes = intervals != null && intervals.playedNotes.length === 2;
+
+  const showChord = chordDetect && detected != null;
+  const showIntervals = intervalDetect && intervals != null;
+  const hasContent = showChord || showIntervals;
+
+  return (
+    <Panel id="now-playing" title="Now Playing" className="now-playing">
+      {/* Fixed-height container so the keyboard below never jumps as the content
+          changes between the empty state and detected notes. */}
+      <div className="np-content">
+        {hasContent ? (
+          <div className="np-body">
+            {showChord && (
+              <div className="np-chord">
+                <span className="np-symbol">{detected!.symbol}</span>
+                <span className="np-name">{detected!.name}</span>
+                {detected!.alternatives.length > 0 && (
+                  <span className="np-alts">
+                    also: {detected!.alternatives.slice(0, 3).join(', ')}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {showIntervals && twoNotes && (
+              <div className="np-interval-solo">
+                <span className="np-symbol">{intervals!.stacked[0].short}</span>
+                <span className="np-name">{intervals!.stacked[0].label}</span>
+              </div>
+            )}
+
+            {showIntervals && !twoNotes && (
+              <div className="np-intervals">
+                <div className="np-row">
+                  <span className="np-row-label">Stacked</span>
+                  <span className="np-chips">
+                    {intervals!.stacked.map((iv, i) => (
+                      <IntervalChip key={i} info={iv} />
+                    ))}
+                  </span>
+                </div>
+                <div className="np-row">
+                  <span className="np-row-label">From root</span>
+                  <span className="np-chips">
+                    {intervals!.fromRoot.map((iv, i) => (
+                      <IntervalChip key={i} info={iv} />
+                    ))}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <span className="np-notes">
+              {(intervals?.playedNotes ?? detected?.playedNotes ?? []).join(' · ')}
+            </span>
+          </div>
+        ) : (
+          <p className="np-empty">
+            {heldCount === 0
+              ? intervalDetect && !chordDetect
+                ? 'Play two or more notes to see their intervals…'
+                : 'Play notes to analyze them…'
+              : heldCount === 1
+                ? 'Holding 1 note — add another for an interval'
+                : `Holding ${heldCount} notes — add more for a chord`}
+          </p>
+        )}
+      </div>
+    </Panel>
+  );
+}

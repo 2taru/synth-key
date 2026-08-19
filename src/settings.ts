@@ -20,6 +20,8 @@ export interface Settings {
   visualizer: boolean;
   noteWaterfall: boolean;
   chordDetect: boolean;
+  /** Analyze the intervals between held notes. */
+  intervalDetect: boolean;
   chordLookup: boolean;
   recorderMode: boolean;
   songMode: boolean;
@@ -63,6 +65,7 @@ export const DEFAULT_SETTINGS: Settings = {
   visualizer: false,
   noteWaterfall: false,
   chordDetect: false,
+  intervalDetect: false,
   chordLookup: false,
   recorderMode: false,
   songMode: false,

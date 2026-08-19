@@ -175,6 +175,61 @@ code {
   text-transform: uppercase;
 }
 
+/* ---------- Collapsible panel ---------- */
+.panel.collapsible {
+  padding: 0;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.panel-head-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.panel-head-btn h2 {
+  margin: 0;
+}
+
+.panel-head-btn:hover h2 {
+  color: var(--text);
+}
+
+.panel-chevron {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: transform 0.18s ease;
+}
+
+.panel.is-collapsed .panel-chevron {
+  transform: rotate(-90deg);
+}
+
+.panel-head-extra {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.panel-body {
+  padding: 0 16px 16px;
+}
+
 .main {
   display: flex;
   flex-direction: column;
@@ -369,11 +424,27 @@ button.ghost:hover {
   min-width: 0;
 }
 
-.controls {
+.controls .panel-body {
   display: flex;
   flex-wrap: wrap;
-  align-items: stretch;
-  gap: 14px 24px;
+  align-items: flex-start;
+  gap: 16px 28px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-group-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
 }
 
 .control {
@@ -501,7 +572,9 @@ button.ghost:hover {
 /* ---------- Keyboard ---------- */
 .legend {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
   margin-bottom: 12px;
   font-size: 0.78rem;
   color: var(--text-dim);
@@ -511,6 +584,22 @@ button.ghost:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.legend-intervals {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.legend-iv {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--target);
+  background: color-mix(in srgb, var(--target) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--target) 32%, transparent);
 }
 
 .swatch {
@@ -1198,33 +1287,98 @@ button.ghost:hover {
   border-color: var(--accent);
 }
 
-/* ---------- Detected chord ---------- */
-.detected-content {
+/* ---------- Now Playing (chord + interval analysis) ---------- */
+.np-content {
   min-height: 6rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.detected-body {
+.np-body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 10px;
 }
 
-.detected-symbol {
+.np-chord,
+.np-interval-solo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.np-symbol {
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--active);
+  line-height: 1.05;
 }
 
-.detected-name {
+.np-name {
   font-size: 0.9rem;
   color: var(--text);
 }
 
-.detected-notes {
+.np-alts {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-intervals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.np-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.np-row-label {
+  flex: 0 0 4.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.np-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.np-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chord) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chord) 32%, transparent);
+  white-space: nowrap;
+}
+
+.np-chip-short {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--chord);
+}
+
+.np-chip-label {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.np-notes {
   font-size: 0.85rem;
   color: var(--text-dim);
   letter-spacing: 0.04em;
@@ -1233,16 +1387,7 @@ button.ghost:hover {
   text-overflow: ellipsis;
 }
 
-.detected-alts {
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-height: 1em; /* reserve the line even when there are no alternatives */
-}
-
-.detected-empty {
+.np-empty {
   margin: 0;
   color: var(--text-dim);
   font-size: 0.88rem;
@@ -1458,9 +1603,6 @@ button.ghost:hover {
 
 /* ---------- Metronome settings ---------- */
 .metro-settings {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 12px;

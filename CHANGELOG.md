@@ -5,6 +5,29 @@ All notable changes to **Synth Key** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-08-19
+
+### Added
+- Interval detection — a new "Learn" toggle that names the intervals between the
+  notes you hold. Two notes show the interval outright (e.g. "P5 · Perfect fifth");
+  three or more break down into a **Stacked** row (interval between adjacent notes)
+  and a **From root** row, so you can see exactly which intervals a chord is made of.
+- Enable Chord detection and Interval detection together and the "Now Playing"
+  panel shows the chord name alongside its interval breakdown at once.
+- Practice interval hint — in song **practice** mode the keyboard legend shows
+  the intervals between the notes you need to play next.
+- Collapsible panels — Controls, Mixer, Metronome and Now Playing fold to just
+  their title (remembered across sessions), so on narrow screens you can tuck
+  away what you're not using.
+
+### Changed
+- The controls panel is grouped into **Visualize**, **Learn** and **Perform**
+  sections so the toggles are easier to scan.
+- "Detected chord" is now the unified **Now Playing** panel covering both chord
+  and interval analysis.
+- The Mixer and Metronome are now separate panels; the metronome starts
+  collapsed and carries its on/off switch in its header.
+
 ## [0.9.0] - 2026-08-14
 
 ### Added

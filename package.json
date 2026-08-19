@@ -1,7 +1,7 @@
 {
   "name": "synth-key",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "description": "Low-latency Web MIDI synthesizer (React + Vite + soundfont-player)",
   "scripts": {

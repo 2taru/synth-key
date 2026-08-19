@@ -22,7 +22,14 @@ interface SfPlayer {
   play: (
     note: string | number,
     when?: number,
-    options?: { gain?: number; duration?: number },
+    options?: {
+      gain?: number;
+      duration?: number;
+      attack?: number;
+      decay?: number;
+      sustain?: number;
+      release?: number;
+    },
   ) => PlayingNote;
   stop: (when?: number) => void;
 }
@@ -47,10 +54,23 @@ const VIBRATO_MAX_CENTS = 50;
 export class AudioEngine {
   readonly ctx: AudioContext;
   private readonly instruments = new Map<string, SfPlayer>();
-  private readonly playing = new Map<number, PlayingNote>();
+  /** Sounding notes per key — an array so a layered voicing can stack two. */
+  private readonly playing = new Map<number, PlayingNote[]>();
 
   /** Name of the instrument the keyboard currently plays. */
   activeName: string = DEFAULT_INSTRUMENT;
+
+  /** Keyboard transpose in semitones, applied to the sounded pitch only. */
+  private transpose = 0;
+
+  /** Per-note amplitude envelope (soundfont-player defaults). */
+  private env = { attack: 0.01, decay: 0.1, sustain: 0.9, release: 0.3 };
+
+  /** Optional second instrument for split/layer play. */
+  private secondaryName: string | null = null;
+  private layerMode: 'off' | 'layer' | 'split' = 'off';
+  /** Notes below this MIDI number use the secondary instrument in split mode. */
+  private splitPoint = 60;
 
   /**
    * Note listeners (visualizer, chord-detect, octave-follow, waterfall, …).
@@ -90,6 +110,11 @@ export class AudioEngine {
   private readonly masterGain: GainNode;
   private readonly wetGain: GainNode;
 
+  /** Delay (echo) send: masterInput -> delay <-> feedback -> delayWet -> master. */
+  private readonly delayWet: GainNode;
+  /** Chorus send: masterInput -> modulated delay -> chorusWet -> master. */
+  private readonly chorusWet: GainNode;
+
   constructor() {
     const Ctx: typeof AudioContext =
       window.AudioContext ??
@@ -109,6 +134,36 @@ export class AudioEngine {
     this.masterInput.connect(convolver);
     convolver.connect(this.wetGain);
     this.wetGain.connect(this.masterGain); // wet send
+
+    // --- Delay (echo) send ---
+    const delay = this.ctx.createDelay(1.0);
+    delay.delayTime.value = 0.28;
+    const feedback = this.ctx.createGain();
+    feedback.gain.value = 0.35;
+    this.delayWet = this.ctx.createGain();
+    this.delayWet.gain.value = 0; // off by default
+    this.masterInput.connect(delay);
+    delay.connect(feedback);
+    feedback.connect(delay); // regenerating echoes
+    delay.connect(this.delayWet);
+    this.delayWet.connect(this.masterGain);
+
+    // --- Chorus send: a short delay whose time is wobbled by an LFO ---
+    const chorusDelay = this.ctx.createDelay(0.1);
+    chorusDelay.delayTime.value = 0.025;
+    const chorusLfo = this.ctx.createOscillator();
+    chorusLfo.frequency.value = 0.8;
+    const chorusDepth = this.ctx.createGain();
+    chorusDepth.gain.value = 0.004; // ±4 ms
+    chorusLfo.connect(chorusDepth);
+    chorusDepth.connect(chorusDelay.delayTime);
+    chorusLfo.start();
+    this.chorusWet = this.ctx.createGain();
+    this.chorusWet.gain.value = 0; // off by default
+    this.masterInput.connect(chorusDelay);
+    chorusDelay.connect(this.chorusWet);
+    this.chorusWet.connect(this.masterGain);
+
     this.masterGain.connect(this.ctx.destination);
 
     // A single free-running LFO drives vibrato on every note. Its depth (modGain)
@@ -203,23 +258,40 @@ export class AudioEngine {
 
   /** Stop and fully tear down a sounding note (also unhooks its vibrato). */
   private stopNote(midi: number): void {
-    const node = this.playing.get(midi);
-    if (!node) return;
-    if (node.source?.detune) {
-      try {
-        this.modGain.disconnect(node.source.detune);
-      } catch {
-        /* was not connected — ignore */
+    const nodes = this.playing.get(midi);
+    if (!nodes) return;
+    for (const node of nodes) {
+      if (node.source?.detune) {
+        try {
+          this.modGain.disconnect(node.source.detune);
+        } catch {
+          /* was not connected — ignore */
+        }
       }
+      node.stop();
     }
-    node.stop();
     this.playing.delete(midi);
+  }
+
+  /** Which instrument(s) a key should sound through, honoring split/layer mode. */
+  private instrumentsFor(midi: number): SfPlayer[] {
+    const primary = this.instruments.get(this.activeName);
+    if (this.layerMode === 'off' || !this.secondaryName) {
+      return primary ? [primary] : [];
+    }
+    const secondary = this.instruments.get(this.secondaryName);
+    if (this.layerMode === 'layer') {
+      return [primary, secondary].filter(Boolean) as SfPlayer[];
+    }
+    // Split: below the split point plays the secondary, at/above plays the primary.
+    const chosen = midi < this.splitPoint ? secondary ?? primary : primary;
+    return chosen ? [chosen] : [];
   }
 
   /** Trigger a note. Called synchronously from the MIDI/pointer callbacks. */
   noteOn(midi: number, velocity = 100): void {
-    const inst = this.instruments.get(this.activeName);
-    if (!inst) return;
+    const insts = this.instrumentsFor(midi);
+    if (insts.length === 0) return;
 
     this.heldKeys.add(midi);
     this.sustained.delete(midi);
@@ -228,17 +300,30 @@ export class AudioEngine {
     this.stopNote(midi);
 
     const gain = Math.max(0, Math.min(1, velocity / 127));
-    const node = inst.play(midiToName(midi), this.ctx.currentTime, { gain });
-    if (node.source?.detune) {
-      // Start the new note already bent, and route vibrato into its detune.
-      if (this.bendCents !== 0) node.source.detune.value = this.bendCents;
-      try {
-        this.modGain.connect(node.source.detune);
-      } catch {
-        /* ignore if the param can't be targeted */
+    const sounded = midiToName(midi + this.transpose);
+    const opts = {
+      gain,
+      attack: this.env.attack,
+      decay: this.env.decay,
+      sustain: this.env.sustain,
+      release: this.env.release,
+    };
+
+    const nodes: PlayingNote[] = [];
+    for (const inst of insts) {
+      const node = inst.play(sounded, this.ctx.currentTime, opts);
+      if (node.source?.detune) {
+        // Start the new note already bent, and route vibrato into its detune.
+        if (this.bendCents !== 0) node.source.detune.value = this.bendCents;
+        try {
+          this.modGain.connect(node.source.detune);
+        } catch {
+          /* ignore if the param can't be targeted */
+        }
       }
+      nodes.push(node);
     }
-    this.playing.set(midi, node);
+    this.playing.set(midi, nodes);
     this.emitNote(midi, true, Math.max(0, Math.min(127, velocity)));
   }
 
@@ -261,8 +346,10 @@ export class AudioEngine {
   setBend(raw: number): void {
     const normalized = (raw - 8192) / 8192; // -1 .. ~+1
     this.bendCents = normalized * PITCH_BEND_RANGE_SEMITONES * 100;
-    this.playing.forEach((n) => {
-      if (n.source?.detune) n.source.detune.value = this.bendCents;
+    this.playing.forEach((nodes) => {
+      nodes.forEach((n) => {
+        if (n.source?.detune) n.source.detune.value = this.bendCents;
+      });
     });
     this.onBend?.(normalized);
   }
@@ -291,6 +378,42 @@ export class AudioEngine {
     const clamped = Math.max(0, Math.min(127, value));
     this.modGain.gain.value = (clamped / 127) * VIBRATO_MAX_CENTS;
     this.onMod?.(clamped);
+  }
+
+  /** Keyboard transpose in semitones (sounded pitch only; visuals unchanged). */
+  setTranspose(semitones: number): void {
+    this.transpose = Math.round(semitones);
+  }
+
+  /** Amplitude envelope (seconds for A/D/R, 0..1 for sustain level). */
+  setEnvelope(env: Partial<{ attack: number; decay: number; sustain: number; release: number }>): void {
+    Object.assign(this.env, env);
+  }
+
+  /** Delay/echo send amount, 0..1. */
+  setDelay(amount: number): void {
+    this.delayWet.gain.value = Math.max(0, Math.min(1, amount)) * 0.6;
+  }
+
+  /** Chorus send amount, 0..1. */
+  setChorus(amount: number): void {
+    this.chorusWet.gain.value = Math.max(0, Math.min(1, amount)) * 0.9;
+  }
+
+  /** Second instrument used by split/layer play (must be loaded first). */
+  setSecondary(name: string | null): void {
+    this.secondaryName = name;
+  }
+
+  /** Keyboard mode: single ('off'), both instruments ('layer'), or split. */
+  setLayerMode(mode: 'off' | 'layer' | 'split'): void {
+    this.layerMode = mode;
+    this.allNotesOff();
+  }
+
+  /** Split point (MIDI number); below it plays the secondary instrument. */
+  setSplitPoint(midi: number): void {
+    this.splitPoint = midi;
   }
 
   /** Panic: silence everything (e.g. when switching instruments). */

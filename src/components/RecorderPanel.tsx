@@ -6,6 +6,9 @@ interface Props {
   onPlayRec: () => void;
   onStop: () => void;
   onExport: () => void;
+  onExportWav: () => void;
+  /** True while a WAV bounce is rendering. */
+  exportingWav?: boolean;
 }
 
 export function RecorderPanel({
@@ -16,6 +19,8 @@ export function RecorderPanel({
   onPlayRec,
   onStop,
   onExport,
+  onExportWav,
+  exportingWav = false,
 }: Props) {
   const hasRec = recNoteCount > 0;
   return (
@@ -50,6 +55,15 @@ export function RecorderPanel({
           title="Export recording as a .mid file"
         >
           ⭳ .mid
+        </button>
+        <button
+          type="button"
+          className="t-btn"
+          onClick={onExportWav}
+          disabled={!hasRec || recording || exportingWav}
+          title="Bounce recording to a .wav audio file"
+        >
+          {exportingWav ? '…' : '⭳ .wav'}
         </button>
         <span className="transport-info">
           {recording ? 'recording…' : hasRec ? `${recNoteCount} notes` : 'no recording'}

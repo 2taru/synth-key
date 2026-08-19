@@ -1631,6 +1631,55 @@ button.ghost:hover {
   cursor: default;
 }
 
+/* ---------- Sound shaping ---------- */
+.sound-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+}
+
+.sound-grid .control {
+  min-width: 150px;
+  flex: 1;
+}
+
+.sound-heading {
+  margin: 16px 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+/* ---------- Split / Layer ---------- */
+.split-modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.split-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.split-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.split-field select {
+  max-width: 16rem;
+}
+
+.split-hint {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+
 /* ---------- Sound library ---------- */
 .library {
   display: flex;

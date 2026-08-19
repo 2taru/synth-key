@@ -14,6 +14,9 @@ import { MetronomePanel } from './components/MetronomePanel';
 import { Panel } from './components/Panel';
 import { RecorderPanel } from './components/RecorderPanel';
 import { SongPanel } from './components/SongPanel';
+import { SoundPanel } from './components/SoundPanel';
+import { SplitPanel, type LayerMode } from './components/SplitPanel';
+import { renderSequenceToWav, downloadWav } from './audio/wavExport';
 import { Metronome } from './audio/metronome';
 import { Recorder } from './audio/recorder';
 import { NotePlayer } from './audio/notePlayer';
@@ -106,6 +109,19 @@ export default function App() {
   const [reference, setReference] = useState(s0.reference);
   const [earTraining, setEarTraining] = useState(s0.earTraining);
   const [heldNotes, setHeldNotes] = useState<Set<number>>(() => new Set());
+
+  // Sound shaping (persisted scalars) + split/layer (session-only)
+  const [transpose, setTranspose] = useState(s0.transpose);
+  const [attack, setAttack] = useState(s0.attack);
+  const [decay, setDecay] = useState(s0.decay);
+  const [sustainLevel, setSustainLevel] = useState(s0.sustain);
+  const [release, setRelease] = useState(s0.release);
+  const [delay, setDelay] = useState(s0.delay);
+  const [chorus, setChorus] = useState(s0.chorus);
+  const [layerMode, setLayerMode] = useState<LayerMode>('off');
+  const [secondary, setSecondary] = useState('');
+  const [splitPoint, setSplitPoint] = useState(60);
+  const [exportingWav, setExportingWav] = useState(false);
 
   const [low, setLow] = useState(() => octaveToMidi(s0.lowOctave));
   const [high, setHigh] = useState(() => octaveToMidi(s0.highOctave));
@@ -213,6 +229,13 @@ export default function App() {
       theoryScale,
       reference,
       earTraining,
+      transpose,
+      attack,
+      decay,
+      sustain: sustainLevel,
+      release,
+      delay,
+      chorus,
       recorderMode,
       songMode,
       lowOctave: midiToOctave(low),
@@ -240,6 +263,13 @@ export default function App() {
     theoryScale,
     reference,
     earTraining,
+    transpose,
+    attack,
+    decay,
+    sustainLevel,
+    release,
+    delay,
+    chorus,
     recorderMode,
     songMode,
     low,
@@ -503,6 +533,18 @@ export default function App() {
     [engine],
   );
 
+  // --- Push sound-shaping settings into the engine ---
+  useEffect(() => engine.setTranspose(transpose), [engine, transpose]);
+  useEffect(
+    () => engine.setEnvelope({ attack, decay, sustain: sustainLevel, release }),
+    [engine, attack, decay, sustainLevel, release],
+  );
+  useEffect(() => engine.setDelay(delay), [engine, delay]);
+  useEffect(() => engine.setChorus(chorus), [engine, chorus]);
+  useEffect(() => engine.setLayerMode(layerMode), [engine, layerMode]);
+  useEffect(() => engine.setSplitPoint(splitPoint), [engine, splitPoint]);
+  useEffect(() => engine.setSecondary(secondary || null), [engine, secondary]);
+
   // --- Sound library state ---
   const loadedSet = useMemo(
     () =>
@@ -646,6 +688,16 @@ export default function App() {
     const rec = recorderRef.current;
     if (rec && rec.noteCount > 0) downloadMidi(rec.getNotes(), bpm);
   }, [bpm]);
+
+  const handleExportWav = useCallback(() => {
+    const rec = recorderRef.current;
+    if (!rec || rec.noteCount === 0 || exportingWav) return;
+    setExportingWav(true);
+    renderSequenceToWav(rec.getNotes(), engine.activeName)
+      .then((blob) => downloadWav(blob))
+      .catch((err) => console.error('WAV export failed', err))
+      .finally(() => setExportingWav(false));
+  }, [engine, exportingWav]);
 
   // --- Song mode ---
   const handleLoadSong = useCallback(
@@ -896,6 +948,36 @@ export default function App() {
             beat={beat}
           />
 
+          <SoundPanel
+            transpose={transpose}
+            onTranspose={setTranspose}
+            attack={attack}
+            decay={decay}
+            sustain={sustainLevel}
+            release={release}
+            onAttack={setAttack}
+            onDecay={setDecay}
+            onSustain={setSustainLevel}
+            onRelease={setRelease}
+            delay={delay}
+            onDelay={setDelay}
+            chorus={chorus}
+            onChorus={setChorus}
+          />
+
+          <SplitPanel
+            mode={layerMode}
+            onMode={setLayerMode}
+            primaryName={active}
+            secondary={secondary}
+            onSecondary={setSecondary}
+            readyInstruments={[...loadedSet]}
+            splitPoint={splitPoint}
+            onSplitPoint={setSplitPoint}
+            low={low}
+            high={high}
+          />
+
           {recorderMode && (
             <RecorderPanel
               recording={recording}
@@ -905,6 +987,8 @@ export default function App() {
               onPlayRec={handlePlayRec}
               onStop={stopAllPlayback}
               onExport={handleExport}
+              onExportWav={handleExportWav}
+              exportingWav={exportingWav}
             />
           )}
 

@@ -33,6 +33,17 @@ export interface Settings {
   reference: boolean;
   /** Show the ear-training quiz. */
   earTraining: boolean;
+  /** Keyboard transpose in semitones. */
+  transpose: number;
+  /** Amplitude envelope (seconds; sustain is a 0..1 level). */
+  attack: number;
+  decay: number;
+  sustain: number;
+  release: number;
+  /** Delay (echo) send amount, 0..1. */
+  delay: number;
+  /** Chorus send amount, 0..1. */
+  chorus: number;
   recorderMode: boolean;
   songMode: boolean;
   /** Lowest visible octave (C of this octave is the bottom key). */
@@ -82,6 +93,13 @@ export const DEFAULT_SETTINGS: Settings = {
   theoryScale: 'major',
   reference: false,
   earTraining: false,
+  transpose: 0,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.9,
+  release: 0.3,
+  delay: 0,
+  chorus: 0,
   recorderMode: false,
   songMode: false,
   lowOctave: 2, // C2 .. C6 → the classic 49-key window

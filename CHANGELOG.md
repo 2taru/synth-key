@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   split point (e.g. bass in the left hand).
 - WAV export — bounce a recording to a .wav audio file (rendered offline).
 
+### Changed
+- The workspace is now organized into **Play**, **Learn** and **Studio** tabs
+  instead of one long stack of panels; each tab shows a badge with how many of
+  its features are active, and the keyboard stays visible under every tab.
+
 ## [0.10.0] - 2026-08-19
 
 ### Added

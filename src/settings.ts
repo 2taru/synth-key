@@ -46,6 +46,8 @@ export interface Settings {
   chorus: number;
   recorderMode: boolean;
   songMode: boolean;
+  /** Active workspace tab: 'play' | 'learn' | 'studio'. */
+  activeTab: string;
   /** Lowest visible octave (C of this octave is the bottom key). */
   lowOctave: number;
   /** Highest visible octave (C of this octave is the top key). */
@@ -102,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chorus: 0,
   recorderMode: false,
   songMode: false,
+  activeTab: 'play',
   lowOctave: 2, // C2 .. C6 → the classic 49-key window
   highOctave: 6,
   keyHeight: 190,

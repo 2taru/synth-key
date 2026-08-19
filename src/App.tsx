@@ -11,7 +11,6 @@ import { NoteWaterfall } from './components/NoteWaterfall';
 import { SongRoll } from './components/SongRoll';
 import { MixerPanel } from './components/MixerPanel';
 import { MetronomePanel } from './components/MetronomePanel';
-import { Panel } from './components/Panel';
 import { RecorderPanel } from './components/RecorderPanel';
 import { SongPanel } from './components/SongPanel';
 import { SoundPanel } from './components/SoundPanel';
@@ -30,6 +29,7 @@ import { TheoryPanel } from './components/TheoryPanel';
 import { ReferencePanel } from './components/ReferencePanel';
 import { EarTrainer } from './components/EarTrainer';
 import { Toggle } from './components/Toggle';
+import { Tabs } from './components/Tabs';
 import { OctaveControl } from './components/OctaveControl';
 import { PitchBendMeter } from './components/PitchBendMeter';
 import { ModulationSlider } from './components/ModulationSlider';
@@ -109,6 +109,8 @@ export default function App() {
   const [reference, setReference] = useState(s0.reference);
   const [earTraining, setEarTraining] = useState(s0.earTraining);
   const [heldNotes, setHeldNotes] = useState<Set<number>>(() => new Set());
+
+  const [activeTab, setActiveTab] = useState(s0.activeTab);
 
   // Sound shaping (persisted scalars) + split/layer (session-only)
   const [transpose, setTranspose] = useState(s0.transpose);
@@ -238,6 +240,7 @@ export default function App() {
       chorus,
       recorderMode,
       songMode,
+      activeTab,
       lowOctave: midiToOctave(low),
       highOctave: midiToOctave(high),
       keyHeight,
@@ -272,6 +275,7 @@ export default function App() {
     chorus,
     recorderMode,
     songMode,
+    activeTab,
     low,
     high,
     keyHeight,
@@ -829,104 +833,83 @@ export default function App() {
         </div>
 
         <main className="main">
-          <Panel id="controls" title="Controls" className="controls">
-            <div className="control-group">
-              <span className="control-group-label">Visualize</span>
-              <Toggle
-                checked={visualizer}
-                onChange={setVisualizer}
-                label="Visualizer"
-                hint="Highlight played keys"
-              />
-              <Toggle
-                checked={noteWaterfall}
-                onChange={setNoteWaterfall}
-                label="Note waterfall"
-                hint="Live rising piano roll"
-              />
-            </div>
+          <Tabs
+            tabs={[
+              {
+                key: 'play',
+                label: 'Play',
+                badge:
+                  (visualizer ? 1 : 0) + (noteWaterfall ? 1 : 0) + (sustain ? 1 : 0),
+              },
+              {
+                key: 'learn',
+                label: 'Learn',
+                badge:
+                  (chordDetect ? 1 : 0) +
+                  (intervalDetect ? 1 : 0) +
+                  (chordLookup ? 1 : 0) +
+                  (theory ? 1 : 0) +
+                  (earTraining ? 1 : 0) +
+                  (reference ? 1 : 0),
+              },
+              {
+                key: 'studio',
+                label: 'Studio',
+                badge: (recorderMode ? 1 : 0) + (songMode ? 1 : 0),
+              },
+            ]}
+            active={activeTab}
+            onChange={setActiveTab}
+          />
 
-            <div className="control-group">
-              <span className="control-group-label">Learn</span>
-              <Toggle
-                checked={chordDetect}
-                onChange={setChordDetect}
-                label="Chord detection"
-                hint="Name the chord you play"
-              />
-              <Toggle
-                checked={intervalDetect}
-                onChange={setIntervalDetect}
-                label="Interval detection"
-                hint="Name & break down intervals"
-              />
-              <Toggle
-                checked={chordLookup}
-                onChange={handleChordLookup}
-                label="Chord lookup"
-                hint="Show a chord by name"
-              />
-              <Toggle
-                checked={theory}
-                onChange={setTheory}
-                label="Scales & keys"
-                hint="Highlight a scale, see its chords"
-              />
-              <Toggle
-                checked={earTraining}
-                onChange={setEarTraining}
-                label="Ear training"
-                hint="Guess intervals & chords"
-              />
-              <Toggle
-                checked={reference}
-                onChange={setReference}
-                label="Reference"
-                hint="Interval & chord cheat-sheet"
-              />
-            </div>
+          {activeTab === 'play' && (
+            <>
+              <section className="panel controls">
+                <div className="control-group">
+                  <span className="control-group-label">Visualize</span>
+                  <Toggle
+                    checked={visualizer}
+                    onChange={setVisualizer}
+                    label="Visualizer"
+                    hint="Highlight played keys"
+                  />
+                  <Toggle
+                    checked={noteWaterfall}
+                    onChange={setNoteWaterfall}
+                    label="Note waterfall"
+                    hint="Live rising piano roll"
+                  />
+                </div>
 
-            <div className="control-group">
-              <span className="control-group-label">Perform</span>
-              <Toggle
-                checked={sustain}
-                onChange={handleSustain}
-                label="Sustain"
-                hint="Hold notes · pedal CC64"
-              />
-              <Toggle
-                checked={recorderMode}
-                onChange={setRecorderMode}
-                label="Recorder"
-                hint="Record & export .mid"
-              />
-              <Toggle
-                checked={songMode}
-                onChange={setSongMode}
-                label="Song mode"
-                hint="Play/practice a .mid"
-              />
-            </div>
+                <div className="control-group">
+                  <span className="control-group-label">Perform</span>
+                  <Toggle
+                    checked={sustain}
+                    onChange={handleSustain}
+                    label="Sustain"
+                    hint="Hold notes · pedal CC64"
+                  />
+                </div>
 
-            <OctaveControl
-              lowOctave={midiToOctave(low)}
-              highOctave={midiToOctave(high)}
-              minOctave={MIN_OCTAVE}
-              maxOctave={MAX_OCTAVE}
-              onLowOctave={handleLowOctave}
-              onHighOctave={handleHighOctave}
-              onDown={() => shiftOctave(-1)}
-              onUp={() => shiftOctave(1)}
-              canDown={low > MIN_MIDI}
-              canUp={high < MAX_MIDI}
-              follow={followMidi}
-              onFollowChange={setFollowMidi}
-            />
-            <PitchBendMeter value={bend} />
-            <ModulationSlider value={mod} onChange={handleMod} />
-          </Panel>
+                <OctaveControl
+                  lowOctave={midiToOctave(low)}
+                  highOctave={midiToOctave(high)}
+                  minOctave={MIN_OCTAVE}
+                  maxOctave={MAX_OCTAVE}
+                  onLowOctave={handleLowOctave}
+                  onHighOctave={handleHighOctave}
+                  onDown={() => shiftOctave(-1)}
+                  onUp={() => shiftOctave(1)}
+                  canDown={low > MIN_MIDI}
+                  canUp={high < MAX_MIDI}
+                  follow={followMidi}
+                  onFollowChange={setFollowMidi}
+                />
+                <PitchBendMeter value={bend} />
+                <ModulationSlider value={mod} onChange={handleMod} />
+              </section>
 
-          <MixerPanel
+              <MixerPanel
             master={master}
             onMaster={handleMaster}
             reverb={reverb}
@@ -946,9 +929,31 @@ export default function App() {
             playWeak={playWeak}
             onPlayWeak={handlePlayWeak}
             beat={beat}
-          />
+              />
+            </>
+          )}
 
-          <SoundPanel
+          {activeTab === 'studio' && (
+            <>
+              <section className="panel controls">
+                <div className="control-group">
+                  <span className="control-group-label">Record</span>
+                  <Toggle
+                    checked={recorderMode}
+                    onChange={setRecorderMode}
+                    label="Recorder"
+                    hint="Record & export .mid"
+                  />
+                  <Toggle
+                    checked={songMode}
+                    onChange={setSongMode}
+                    label="Song mode"
+                    hint="Play/practice a .mid"
+                  />
+                </div>
+              </section>
+
+              <SoundPanel
             transpose={transpose}
             onTranspose={setTranspose}
             attack={attack}
@@ -1003,10 +1008,59 @@ export default function App() {
               onClearSong={handleClearSong}
               onPracticeChange={setPractice}
             />
+              )}
+            </>
           )}
 
-          {(chordDetect || intervalDetect) && (
-            <NowPlaying
+          {activeTab === 'learn' && (
+            <>
+              <section className="panel controls">
+                <div className="control-group">
+                  <span className="control-group-label">Detect</span>
+                  <Toggle
+                    checked={chordDetect}
+                    onChange={setChordDetect}
+                    label="Chord detection"
+                    hint="Name the chord you play"
+                  />
+                  <Toggle
+                    checked={intervalDetect}
+                    onChange={setIntervalDetect}
+                    label="Interval detection"
+                    hint="Name & break down intervals"
+                  />
+                  <Toggle
+                    checked={chordLookup}
+                    onChange={handleChordLookup}
+                    label="Chord lookup"
+                    hint="Show a chord by name"
+                  />
+                </div>
+                <div className="control-group">
+                  <span className="control-group-label">Study</span>
+                  <Toggle
+                    checked={theory}
+                    onChange={setTheory}
+                    label="Scales & keys"
+                    hint="Highlight a scale, see its chords"
+                  />
+                  <Toggle
+                    checked={earTraining}
+                    onChange={setEarTraining}
+                    label="Ear training"
+                    hint="Guess intervals & chords"
+                  />
+                  <Toggle
+                    checked={reference}
+                    onChange={setReference}
+                    label="Reference"
+                    hint="Interval & chord cheat-sheet"
+                  />
+                </div>
+              </section>
+
+              {(chordDetect || intervalDetect) && (
+                <NowPlaying
               chordDetect={chordDetect}
               intervalDetect={intervalDetect}
               detected={detected}
@@ -1037,6 +1091,8 @@ export default function App() {
               onShow={handleShowChord}
               onClear={handleClearChord}
             />
+              )}
+            </>
           )}
 
           <section className="panel keyboard-panel">

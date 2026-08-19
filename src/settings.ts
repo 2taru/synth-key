@@ -23,6 +23,16 @@ export interface Settings {
   /** Analyze the intervals between held notes. */
   intervalDetect: boolean;
   chordLookup: boolean;
+  /** Show the scale/key highlighting panel. */
+  theory: boolean;
+  /** Selected tonic for scale highlighting, e.g. "C". */
+  theoryTonic: string;
+  /** Selected scale/mode, e.g. "major". */
+  theoryScale: string;
+  /** Show the interval/chord reference cheat-sheet. */
+  reference: boolean;
+  /** Show the ear-training quiz. */
+  earTraining: boolean;
   recorderMode: boolean;
   songMode: boolean;
   /** Lowest visible octave (C of this octave is the bottom key). */
@@ -67,6 +77,11 @@ export const DEFAULT_SETTINGS: Settings = {
   chordDetect: false,
   intervalDetect: false,
   chordLookup: false,
+  theory: false,
+  theoryTonic: 'C',
+  theoryScale: 'major',
+  reference: false,
+  earTraining: false,
   recorderMode: false,
   songMode: false,
   lowOctave: 2, // C2 .. C6 → the classic 49-key window

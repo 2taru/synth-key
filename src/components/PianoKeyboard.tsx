@@ -13,6 +13,10 @@ interface Props {
   chordKeys: Set<number>;
   /** Notes to play, highlighted during song / practice mode. */
   targetKeys?: Set<number>;
+  /** Pitch classes (0..11) belonging to the highlighted scale. */
+  scaleChromas?: Set<number>;
+  /** Pitch class (0..11) of the scale's tonic, or null when off. */
+  rootChroma?: number | null;
   onPress?: (midi: number, velocity: number) => void;
   onRelease?: (midi: number) => void;
 }
@@ -47,6 +51,8 @@ function PianoKeyboardBase({
   activeKeys,
   chordKeys,
   targetKeys = EMPTY,
+  scaleChromas = EMPTY,
+  rootChroma = null,
   onPress,
   onRelease,
 }: Props) {
@@ -69,16 +75,20 @@ function PianoKeyboardBase({
   };
   const release = (m: number) => () => onRelease?.(m);
 
-  const classNames = (m: number, base: string): string =>
-    [
+  const classNames = (m: number, base: string): string => {
+    const chroma = ((m % 12) + 12) % 12;
+    return [
       'key',
       base,
+      scaleChromas.has(chroma) && 'in-scale',
+      rootChroma === chroma && 'scale-root',
       targetKeys.has(m) && 'target',
       chordKeys.has(m) && 'chord',
       activeKeys.has(m) && 'active',
     ]
       .filter(Boolean)
       .join(' ');
+  };
 
   return (
     <div className="keyboard-inner" role="group" aria-label="Piano keyboard">

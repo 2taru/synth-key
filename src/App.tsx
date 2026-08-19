@@ -5,6 +5,7 @@ import { midiToName } from './audio/notes';
 import { useMidi, type MidiStatus } from './midi/useMidi';
 import { chordToMidi, detectChord, type ChordResult } from './music/chords';
 import { detectIntervals } from './music/intervals';
+import { getScale } from './music/scales';
 import { PianoKeyboard } from './components/PianoKeyboard';
 import { NoteWaterfall } from './components/NoteWaterfall';
 import { SongRoll } from './components/SongRoll';
@@ -22,6 +23,9 @@ import { InstrumentPanel, type InstrumentItem } from './components/InstrumentPan
 import { SoundLibrary } from './components/SoundLibrary';
 import { ChordPanel } from './components/ChordPanel';
 import { NowPlaying } from './components/NowPlaying';
+import { TheoryPanel } from './components/TheoryPanel';
+import { ReferencePanel } from './components/ReferencePanel';
+import { EarTrainer } from './components/EarTrainer';
 import { Toggle } from './components/Toggle';
 import { OctaveControl } from './components/OctaveControl';
 import { PitchBendMeter } from './components/PitchBendMeter';
@@ -96,6 +100,11 @@ export default function App() {
   const [chordDetect, setChordDetect] = useState(s0.chordDetect);
   const [intervalDetect, setIntervalDetect] = useState(s0.intervalDetect);
   const [chordLookup, setChordLookup] = useState(s0.chordLookup);
+  const [theory, setTheory] = useState(s0.theory);
+  const [theoryTonic, setTheoryTonic] = useState(s0.theoryTonic);
+  const [theoryScale, setTheoryScale] = useState(s0.theoryScale);
+  const [reference, setReference] = useState(s0.reference);
+  const [earTraining, setEarTraining] = useState(s0.earTraining);
   const [heldNotes, setHeldNotes] = useState<Set<number>>(() => new Set());
 
   const [low, setLow] = useState(() => octaveToMidi(s0.lowOctave));
@@ -199,6 +208,11 @@ export default function App() {
       chordDetect,
       intervalDetect,
       chordLookup,
+      theory,
+      theoryTonic,
+      theoryScale,
+      reference,
+      earTraining,
       recorderMode,
       songMode,
       lowOctave: midiToOctave(low),
@@ -221,6 +235,11 @@ export default function App() {
     chordDetect,
     intervalDetect,
     chordLookup,
+    theory,
+    theoryTonic,
+    theoryScale,
+    reference,
+    earTraining,
     recorderMode,
     songMode,
     low,
@@ -456,6 +475,32 @@ export default function App() {
   const targetIntervals = useMemo(
     () => (songMode && practice ? detectIntervals(targetKeys) : null),
     [songMode, practice, targetKeys],
+  );
+
+  // --- Scale / key theory: powers keyboard highlighting and the theory panel ---
+  const scaleInfo = useMemo(
+    () => getScale(theoryTonic, theoryScale),
+    [theoryTonic, theoryScale],
+  );
+  const scaleChromas = theory && scaleInfo.ok ? scaleInfo.chromas : undefined;
+  const rootChroma = theory && scaleInfo.ok ? scaleInfo.tonicChroma : null;
+
+  // --- Audition notes from theory tools / ear trainer (outside the hot path) ---
+  const playMidis = useCallback(
+    (midis: number[], arpeggio = false) => {
+      void engine.resume();
+      if (arpeggio) {
+        const step = 280;
+        midis.forEach((m, i) => {
+          window.setTimeout(() => engine.noteOn(m, 96), i * step);
+          window.setTimeout(() => engine.noteOff(m), i * step + 460);
+        });
+      } else {
+        midis.forEach((m) => engine.noteOn(m, 96));
+        window.setTimeout(() => midis.forEach((m) => engine.noteOff(m)), 750);
+      }
+    },
+    [engine],
   );
 
   // --- Sound library state ---
@@ -769,6 +814,24 @@ export default function App() {
                 label="Chord lookup"
                 hint="Show a chord by name"
               />
+              <Toggle
+                checked={theory}
+                onChange={setTheory}
+                label="Scales & keys"
+                hint="Highlight a scale, see its chords"
+              />
+              <Toggle
+                checked={earTraining}
+                onChange={setEarTraining}
+                label="Ear training"
+                hint="Guess intervals & chords"
+              />
+              <Toggle
+                checked={reference}
+                onChange={setReference}
+                label="Reference"
+                hint="Interval & chord cheat-sheet"
+              />
             </div>
 
             <div className="control-group">
@@ -868,6 +931,21 @@ export default function App() {
             />
           )}
 
+          {theory && (
+            <TheoryPanel
+              tonic={theoryTonic}
+              scaleType={theoryScale}
+              onTonic={setTheoryTonic}
+              onScaleType={setTheoryScale}
+              info={scaleInfo}
+              onPlayNotes={playMidis}
+            />
+          )}
+
+          {earTraining && <EarTrainer onPlayNotes={playMidis} />}
+
+          {reference && <ReferencePanel />}
+
           {chordLookup && (
             <ChordPanel
               result={chord}
@@ -888,6 +966,11 @@ export default function App() {
               {songMode && (
                 <span className="legend-item">
                   <span className="swatch target" /> To play
+                </span>
+              )}
+              {theory && scaleInfo.ok && (
+                <span className="legend-item">
+                  <span className="swatch scale" /> {theoryTonic} {theoryScale}
                 </span>
               )}
               {targetIntervals && targetIntervals.stacked.length > 0 && (
@@ -983,6 +1066,8 @@ export default function App() {
                     activeKeys={activeKeys}
                     chordKeys={chordKeys}
                     targetKeys={targetKeys}
+                    scaleChromas={scaleChromas}
+                    rootChroma={rootChroma}
                     onPress={handlePress}
                     onRelease={handleRelease}
                   />

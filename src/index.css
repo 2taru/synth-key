@@ -753,6 +753,36 @@ button.ghost:hover {
   color: #1a1c22;
 }
 
+/* Scale highlight: a dot marker that coexists with the played/chord/target fills. */
+.key.in-scale::after {
+  content: '';
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.key.black.in-scale::after {
+  bottom: 9px;
+}
+
+.key.scale-root::after {
+  width: 8px;
+  height: 8px;
+  opacity: 1;
+  box-shadow: 0 0 6px var(--accent);
+}
+
+.swatch.scale {
+  background: var(--accent);
+}
+
 /* ---------- Octave control ---------- */
 .octave-buttons {
   display: inline-flex;
@@ -1391,6 +1421,214 @@ button.ghost:hover {
   margin: 0;
   color: var(--text-dim);
   font-size: 0.88rem;
+}
+
+/* ---------- Theory: scales & keys ---------- */
+.theory-selectors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-bottom: 14px;
+}
+
+.theory-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.theory-field select {
+  min-width: 8.5rem;
+}
+
+.theory-play {
+  padding: 8px 14px;
+}
+
+.theory-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.theory-note {
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.theory-note.root {
+  color: #0b1020;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.theory-chords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.theory-chord {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 3.4rem;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.theory-chord:hover {
+  border-color: var(--accent);
+}
+
+.theory-roman {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.theory-sym {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+/* ---------- Reference cheat-sheet ---------- */
+.ref-heading {
+  margin: 4px 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.ref-heading + * {
+  margin-bottom: 16px;
+}
+
+.ref-intervals,
+.ref-chords {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.ref-iv,
+.ref-chord {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.ref-iv-short,
+.ref-chord-name {
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 2.2rem;
+}
+
+.ref-chord-name {
+  min-width: 5.5rem;
+}
+
+.ref-iv-name,
+.ref-chord-formula {
+  color: var(--text);
+  flex: 1;
+}
+
+.ref-iv-semi,
+.ref-chord-iv {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+/* ---------- Ear training ---------- */
+.ear-score {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.ear-modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ear-start {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #0b1020;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ear-transport {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ear-transport .ghost {
+  flex: 1;
+  padding: 9px;
+}
+
+.ear-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.ear-choice {
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+
+.ear-choice:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.ear-choice.correct {
+  background: color-mix(in srgb, var(--chord) 22%, transparent);
+  border-color: var(--chord);
+  color: var(--text);
+}
+
+.ear-choice.wrong {
+  background: color-mix(in srgb, var(--active) 22%, transparent);
+  border-color: var(--active);
+}
+
+.ear-choice:disabled {
+  cursor: default;
 }
 
 /* ---------- Sound library ---------- */

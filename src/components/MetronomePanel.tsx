@@ -1,5 +1,15 @@
-import { Toggle } from './Toggle';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Panel } from './Panel';
+import { cn } from '@/lib/utils';
 
 interface Props {
   metronomeOn: boolean;
@@ -41,79 +51,94 @@ export function MetronomePanel({
     <Panel
       id="metronome"
       title="Metronome"
-      className="metronome"
       defaultCollapsed
       headerExtra={
-        <Toggle checked={metronomeOn} onChange={onMetronome} label="On" />
+        <Switch
+          checked={metronomeOn}
+          onCheckedChange={onMetronome}
+          aria-label="Metronome on"
+        />
       }
     >
-      <div className="metro-settings">
-        <div className="metro-row">
-          <span className="control-label">Time signature</span>
-          <div className="timesig">
-            <input
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-foreground">
+            Time signature
+          </span>
+          <div className="flex items-center gap-2">
+            <Input
               type="number"
               min={1}
               max={32}
               value={timeSigNum}
               onChange={(e) => onTimeSig(Number(e.target.value) || 1, timeSigDen)}
               aria-label="Beats per bar"
+              className="w-16 text-center tabular-nums"
             />
-            <span className="timesig-slash">/</span>
-            <select
-              value={timeSigDen}
-              onChange={(e) => onTimeSig(timeSigNum, Number(e.target.value))}
-              aria-label="Beat note value"
+            <span className="text-muted-foreground">/</span>
+            <Select
+              value={String(timeSigDen)}
+              onValueChange={(v) => onTimeSig(timeSigNum, Number(v))}
             >
-              {DENOMINATORS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-20" aria-label="Beat note value">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DENOMINATORS.map((d) => (
+                  <SelectItem key={d} value={String(d)}>
+                    {d}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="timesig-presets">
+          <div className="flex flex-wrap gap-1.5">
             {PRESETS.map(([n, d]) => (
-              <button
+              <Button
                 key={`${n}/${d}`}
                 type="button"
-                className={`preset-btn ${n === timeSigNum && d === timeSigDen ? 'active' : ''}`}
+                size="sm"
+                variant={
+                  n === timeSigNum && d === timeSigDen ? 'default' : 'outline'
+                }
                 onClick={() => onTimeSig(n, d)}
               >
                 {n}/{d}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
-        <div className="metro-row">
-          <div className="beat-dots" aria-hidden>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-1.5" aria-hidden>
             {beats.map((i) => (
               <span
                 key={i}
-                className={[
-                  'beat-dot',
-                  i === 0 && 'strong',
-                  metronomeOn && i === beat && 'on',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
+                className={cn(
+                  'h-2.5 w-2.5 rounded-full transition-colors',
+                  i === 0 ? 'bg-muted-foreground/60' : 'bg-muted-foreground/30',
+                  metronomeOn &&
+                    i === beat &&
+                    (i === 0
+                      ? 'scale-125 bg-primary'
+                      : 'scale-110 bg-foreground'),
+                )}
               />
             ))}
           </div>
-          <label className="metro-check">
-            <input
-              type="checkbox"
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <Switch
               checked={accentStrong}
-              onChange={(e) => onAccentStrong(e.target.checked)}
+              onCheckedChange={onAccentStrong}
+              aria-label="Strong beat"
             />
             Strong beat
           </label>
-          <label className="metro-check">
-            <input
-              type="checkbox"
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <Switch
               checked={playWeak}
-              onChange={(e) => onPlayWeak(e.target.checked)}
+              onCheckedChange={onPlayWeak}
+              aria-label="Weak beats"
             />
             Weak beats
           </label>

@@ -1,9 +1,14 @@
 import { useMemo, useState } from 'react';
+import { ChevronRight, Check } from 'lucide-react';
 import {
   GM_FAMILIES,
   prettifyInstrument,
   familyOf,
 } from '../music/gmInstruments';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface Props {
   /** Names currently loaded in the engine. */
@@ -25,12 +30,12 @@ export function SoundLibrary({ loaded, loading, active, onPick }: Props) {
   const q = query.trim().toLowerCase();
 
   const filtered = useMemo(() => {
-    if (!q) return GM_FAMILIES.map((f) => ({ family: f.name, items: f.instruments }));
+    if (!q)
+      return GM_FAMILIES.map((f) => ({ family: f.name, items: f.instruments }));
     return GM_FAMILIES.map((f) => ({
       family: f.name,
       items: f.instruments.filter(
-        (n) =>
-          n.includes(q) || prettifyInstrument(n).toLowerCase().includes(q),
+        (n) => n.includes(q) || prettifyInstrument(n).toLowerCase().includes(q),
       ),
     })).filter((f) => f.items.length > 0);
   }, [q]);
@@ -51,68 +56,95 @@ export function SoundLibrary({ loaded, loading, active, onPick }: Props) {
   };
 
   return (
-    <aside className="panel library">
-      <h2>Sound Library</h2>
+    <Card className="flex min-h-0 flex-col">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">Sound Library</CardTitle>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
+        <Input
+          type="text"
+          placeholder="Search 128 sounds…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
+        />
 
-      <input
-        type="text"
-        className="library-search"
-        placeholder="Search 128 sounds…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        spellCheck={false}
-        autoCorrect="off"
-        autoCapitalize="off"
-      />
+        <div className="-mr-1 flex max-h-[min(50vh,420px)] flex-col gap-1 overflow-y-auto pr-1">
+          {filtered.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No sounds match "{query}".
+            </p>
+          )}
 
-      <div className="library-scroll">
-        {filtered.length === 0 && <p className="hint">No sounds match "{query}".</p>}
+          {filtered.map(({ family, items }) => {
+            const open = q ? true : expanded.has(family);
+            return (
+              <div key={family}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-medium hover:bg-accent/50"
+                  onClick={() => toggle(family)}
+                  aria-expanded={open}
+                >
+                  <ChevronRight
+                    className={cn(
+                      'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                      open && 'rotate-90',
+                    )}
+                    aria-hidden
+                  />
+                  <span className="flex-1">{family}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {items.length}
+                  </span>
+                </button>
 
-        {filtered.map(({ family, items }) => {
-          const open = q ? true : expanded.has(family);
-          return (
-            <div className="library-group" key={family}>
-              <button
-                type="button"
-                className="library-group-header"
-                onClick={() => toggle(family)}
-                aria-expanded={open}
-              >
-                <span className={`chevron ${open ? 'open' : ''}`} aria-hidden>
-                  ▸
-                </span>
-                <span className="group-name">{family}</span>
-                <span className="group-count">{items.length}</span>
-              </button>
-
-              {open && (
-                <ul className="library-items">
-                  {items.map((name) => {
-                    const status = statusOf(name);
-                    return (
-                      <li key={name}>
-                        <button
-                          type="button"
-                          className={`library-item ${status}`}
-                          onClick={() => onPick(name)}
-                        >
-                          <span className="dot" aria-hidden />
-                          <span className="label">{prettifyInstrument(name)}</span>
-                          {status === 'loading' && (
-                            <span className="tag">loading…</span>
-                          )}
-                          {status === 'loaded' && <span className="tag">✓</span>}
-                          {status === 'active' && <span className="tag">active</span>}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </aside>
+                {open && (
+                  <ul className="mb-1 ml-3 flex flex-col gap-0.5 border-l border-border pl-2">
+                    {items.map((name) => {
+                      const status = statusOf(name);
+                      return (
+                        <li key={name}>
+                          <button
+                            type="button"
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                              status === 'active'
+                                ? 'bg-primary/15 text-foreground'
+                                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                            )}
+                            onClick={() => onPick(name)}
+                          >
+                            <span className="truncate">
+                              {prettifyInstrument(name)}
+                            </span>
+                            {status === 'loading' && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-auto animate-pulse"
+                              >
+                                loading…
+                              </Badge>
+                            )}
+                            {status === 'loaded' && (
+                              <Check className="ml-auto h-3.5 w-3.5 text-success" />
+                            )}
+                            {status === 'active' && (
+                              <Badge className="ml-auto">active</Badge>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

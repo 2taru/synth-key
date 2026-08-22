@@ -1,5 +1,6 @@
 import { Panel } from './Panel';
 import { Slider } from './Slider';
+import { Slider as UiSlider } from '@/components/ui/slider';
 
 interface Props {
   transpose: number;
@@ -18,7 +19,7 @@ interface Props {
   onChorus: (v: number) => void;
 }
 
-/** A labelled range input over an arbitrary numeric span. */
+/** A labelled range over an arbitrary numeric span. */
 function Range({
   label,
   value,
@@ -37,19 +38,19 @@ function Range({
   format: (v: number) => string;
 }) {
   return (
-    <div className="control">
-      <span className="control-label">
-        {label}
-        <span className="pb-value">{format(value)}</span>
-      </span>
-      <input
-        type="range"
-        className="mod-slider"
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className="tabular-nums text-muted-foreground">
+          {format(value)}
+        </span>
+      </div>
+      <UiSlider
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        value={[value]}
+        onValueChange={([v]) => onChange(v)}
         aria-label={label}
       />
     </div>
@@ -57,6 +58,14 @@ function Range({
 }
 
 const secs = (v: number) => `${v.toFixed(2)}s`;
+
+function Heading({ children }: { children: string }) {
+  return (
+    <h3 className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </h3>
+  );
+}
 
 export function SoundPanel({
   transpose,
@@ -75,8 +84,8 @@ export function SoundPanel({
   onChorus,
 }: Props) {
   return (
-    <Panel id="sound" title="Sound shaping" className="sound" defaultCollapsed>
-      <div className="sound-grid">
+    <Panel id="sound" title="Sound shaping" defaultCollapsed>
+      <div className="flex flex-col gap-5">
         <Range
           label="Transpose"
           value={transpose}
@@ -86,20 +95,20 @@ export function SoundPanel({
           onChange={onTranspose}
           format={(v) => (v === 0 ? '0' : `${v > 0 ? '+' : ''}${v} st`)}
         />
-      </div>
 
-      <h3 className="sound-heading">Envelope</h3>
-      <div className="sound-grid">
-        <Range label="Attack" value={attack} min={0.001} max={1.5} step={0.001} onChange={onAttack} format={secs} />
-        <Range label="Decay" value={decay} min={0.001} max={2} step={0.001} onChange={onDecay} format={secs} />
-        <Slider label="Sustain" value={sustain} onChange={onSustain} />
-        <Range label="Release" value={release} min={0.01} max={3} step={0.01} onChange={onRelease} format={secs} />
-      </div>
+        <Heading>Envelope</Heading>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Range label="Attack" value={attack} min={0.001} max={1.5} step={0.001} onChange={onAttack} format={secs} />
+          <Range label="Decay" value={decay} min={0.001} max={2} step={0.001} onChange={onDecay} format={secs} />
+          <Slider label="Sustain" value={sustain} onChange={onSustain} />
+          <Range label="Release" value={release} min={0.01} max={3} step={0.01} onChange={onRelease} format={secs} />
+        </div>
 
-      <h3 className="sound-heading">Effects</h3>
-      <div className="sound-grid">
-        <Slider label="Delay" value={delay} onChange={onDelay} />
-        <Slider label="Chorus" value={chorus} onChange={onChorus} />
+        <Heading>Effects</Heading>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Slider label="Delay" value={delay} onChange={onDelay} />
+          <Slider label="Chorus" value={chorus} onChange={onChorus} />
+        </div>
       </div>
     </Panel>
   );

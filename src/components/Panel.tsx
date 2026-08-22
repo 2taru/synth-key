@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface Props {
   /** Stable id used to remember the collapsed state across sessions. */
   id: string;
   title: string;
-  /** Extra class(es) for the <section> (e.g. layout modifiers). */
+  /** Extra class(es) for the card. */
   className?: string;
   /** Collapsed state used the first time this panel is ever seen. */
   defaultCollapsed?: boolean;
@@ -25,7 +28,7 @@ function readCollapsed(id: string, fallback: boolean): boolean {
 }
 
 /**
- * A panel with a collapsible body. The header is a button that folds the panel
+ * A card with a collapsible body. The header is a button that folds the panel
  * to just its title — handy on narrow screens where every panel competes for
  * vertical space. The collapsed state is remembered per `id` in localStorage.
  */
@@ -52,22 +55,26 @@ export function Panel({
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
   return (
-    <section className={`panel collapsible ${collapsed ? 'is-collapsed' : ''} ${className}`}>
-      <div className="panel-head">
+    <Card className={cn('overflow-hidden', className)}>
+      <div className="flex items-center justify-between gap-2 pr-3">
         <button
           type="button"
-          className="panel-head-btn"
+          className="flex flex-1 items-center gap-2 p-4 text-left"
           onClick={toggle}
           aria-expanded={!collapsed}
         >
-          <span className="panel-chevron" aria-hidden>
-            ▾
-          </span>
-          <h2>{title}</h2>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              collapsed && '-rotate-90',
+            )}
+            aria-hidden
+          />
+          <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
         </button>
-        {headerExtra && <div className="panel-head-extra">{headerExtra}</div>}
+        {headerExtra && <div className="shrink-0">{headerExtra}</div>}
       </div>
-      {!collapsed && <div className="panel-body">{children}</div>}
-    </section>
+      {!collapsed && <div className="border-t border-border p-4">{children}</div>}
+    </Card>
   );
 }

@@ -1,6 +1,13 @@
-import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { CHANGELOG_ENTRIES } from '../changelog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -20,7 +27,14 @@ function renderInline(text: string): ReactNode[] {
     if (token.startsWith('**')) {
       nodes.push(<strong key={key++}>{token.slice(2, -2)}</strong>);
     } else {
-      nodes.push(<code key={key++}>{token.slice(1, -1)}</code>);
+      nodes.push(
+        <code
+          key={key++}
+          className="rounded bg-muted px-1 py-0.5 text-[0.8em]"
+        >
+          {token.slice(1, -1)}
+        </code>,
+      );
     }
     last = m.index + token.length;
   }
@@ -29,61 +43,44 @@ function renderInline(text: string): ReactNode[] {
 }
 
 /** Color-code the common Keep-a-Changelog section titles. */
-function sectionClass(title: string): string {
+function sectionColor(title: string): string {
   const key = title.toLowerCase();
-  if (key.startsWith('add')) return 'added';
-  if (key.startsWith('fix')) return 'fixed';
-  if (key.startsWith('chang')) return 'changed';
-  if (key.startsWith('remov') || key.startsWith('deprecat')) return 'removed';
-  return '';
+  if (key.startsWith('add')) return 'text-success';
+  if (key.startsWith('fix')) return 'text-primary';
+  if (key.startsWith('chang')) return 'text-[color:hsl(38_92%_60%)]';
+  if (key.startsWith('remov') || key.startsWith('deprecat'))
+    return 'text-destructive';
+  return 'text-muted-foreground';
 }
 
 export function Changelog({ open, onClose }: Props) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal changelog-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Changelog"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="modal-header">
-          <h2>Changelog</h2>
-          <button
-            type="button"
-            className="modal-close"
-            onClick={onClose}
-            aria-label="Close changelog"
-          >
-            ✕
-          </button>
-        </header>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent aria-label="Changelog">
+        <DialogHeader>
+          <DialogTitle>Changelog</DialogTitle>
+        </DialogHeader>
 
-        <div className="modal-body">
+        <div className="flex flex-col gap-6">
           {CHANGELOG_ENTRIES.map((entry) => (
-            <article className="changelog-entry" key={entry.version}>
-              <div className="changelog-version">
-                <span className="version-tag">v{entry.version}</span>
-                <span className="version-date">{entry.date}</span>
+            <article key={entry.version} className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Badge>v{entry.version}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  {entry.date}
+                </span>
               </div>
               {entry.sections.map((section) => (
-                <div className="changelog-section" key={section.title}>
-                  <h3 className={`changelog-section-title ${sectionClass(section.title)}`}>
+                <div key={section.title} className="flex flex-col gap-1.5">
+                  <h3
+                    className={cn(
+                      'text-xs font-semibold uppercase tracking-wide',
+                      sectionColor(section.title),
+                    )}
+                  >
                     {section.title}
                   </h3>
-                  <ul>
+                  <ul className="ml-4 list-disc space-y-1 text-sm text-foreground/90 marker:text-muted-foreground">
                     {section.items.map((item, i) => (
                       <li key={i}>{renderInline(item)}</li>
                     ))}
@@ -93,7 +90,7 @@ export function Changelog({ open, onClose }: Props) {
             </article>
           ))}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

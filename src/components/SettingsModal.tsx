@@ -1,5 +1,12 @@
-import { useEffect } from 'react';
 import type { Colors } from '../settings';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Slider as UiSlider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   open: boolean;
@@ -31,6 +38,14 @@ const BACKGROUND_ROWS: ColorRow[] = [
   { key: 'stageBottom', label: 'Stage bottom', hint: 'Waterfall gradient (bottom)' },
 ];
 
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </h3>
+  );
+}
+
 function ColorRows({
   rows,
   colors,
@@ -41,22 +56,69 @@ function ColorRows({
   onColorChange: (key: keyof Colors, value: string) => void;
 }) {
   return (
-    <div className="color-rows">
+    <div className="flex flex-col gap-1.5">
       {rows.map(({ key, label, hint }) => (
-        <label className="color-row" key={key}>
+        <label
+          key={key}
+          className="flex cursor-pointer items-center gap-3 rounded-lg px-1 py-1.5 hover:bg-accent/40"
+        >
           <input
             type="color"
             value={colors[key]}
             onChange={(e) => onColorChange(key, e.target.value)}
             aria-label={label}
+            className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0.5"
           />
-          <span className="color-text">
-            <span className="color-label">{label}</span>
-            <span className="color-hint">{hint}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-sm font-medium text-foreground">{label}</span>
+            <span className="text-xs text-muted-foreground">{hint}</span>
           </span>
-          <span className="color-value">{colors[key]}</span>
+          <span className="shrink-0 font-mono text-xs uppercase text-muted-foreground">
+            {colors[key]}
+          </span>
         </label>
       ))}
+    </div>
+  );
+}
+
+function RangeRow({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  suffix,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+  suffix: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        <span className="tabular-nums text-xs text-muted-foreground">
+          {value}
+          {suffix}
+        </span>
+      </div>
+      <UiSlider
+        min={min}
+        max={max}
+        step={step}
+        value={[value]}
+        onValueChange={([v]) => onChange(v)}
+        aria-label={label}
+      />
+      <span className="text-xs text-muted-foreground">{hint}</span>
     </div>
   );
 }
@@ -72,83 +134,65 @@ export function SettingsModal({
   noteSpeed,
   onNoteSpeed,
 }: Props) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal settings-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Settings"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="modal-header">
-          <h2>Settings</h2>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Close settings">
-            ✕
-          </button>
-        </header>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent aria-label="Settings">
+        <DialogHeader>
+          <DialogTitle>Settings</DialogTitle>
+        </DialogHeader>
 
-        <div className="modal-body">
-          <h3 className="settings-section-title">Colors</h3>
-          <ColorRows rows={PALETTE_ROWS} colors={colors} onColorChange={onColorChange} />
-
-          <h3 className="settings-section-title">Background</h3>
-          <ColorRows rows={BACKGROUND_ROWS} colors={colors} onColorChange={onColorChange} />
-
-          <h3 className="settings-section-title">Keyboard &amp; motion</h3>
-          <div className="range-rows">
-            <label className="range-row">
-              <span className="range-text">
-                <span className="color-label">Key height</span>
-                <span className="color-hint">On-screen key size (also drag the handle)</span>
-              </span>
-              <input
-                type="range"
-                min={90}
-                max={420}
-                step={2}
-                value={keyHeight}
-                onChange={(e) => onKeyHeight(Number(e.target.value))}
-                aria-label="Key height"
-              />
-              <span className="color-value">{keyHeight}px</span>
-            </label>
-            <label className="range-row">
-              <span className="range-text">
-                <span className="color-label">Note speed</span>
-                <span className="color-hint">Waterfall / song-roll scroll speed</span>
-              </span>
-              <input
-                type="range"
-                min={40}
-                max={320}
-                step={5}
-                value={noteSpeed}
-                onChange={(e) => onNoteSpeed(Number(e.target.value))}
-                aria-label="Note speed"
-              />
-              <span className="color-value">{noteSpeed}px/s</span>
-            </label>
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <SectionTitle>Colors</SectionTitle>
+            <ColorRows
+              rows={PALETTE_ROWS}
+              colors={colors}
+              onColorChange={onColorChange}
+            />
           </div>
 
-          <button type="button" className="t-btn ghost settings-reset" onClick={onReset}>
-            Reset to defaults
-          </button>
+          <div className="flex flex-col gap-2">
+            <SectionTitle>Background</SectionTitle>
+            <ColorRows
+              rows={BACKGROUND_ROWS}
+              colors={colors}
+              onColorChange={onColorChange}
+            />
+          </div>
 
-          <p className="settings-note">Settings are saved to this browser (localStorage).</p>
+          <div className="flex flex-col gap-4">
+            <SectionTitle>Keyboard &amp; motion</SectionTitle>
+            <RangeRow
+              label="Key height"
+              hint="On-screen key size (also drag the handle)."
+              value={keyHeight}
+              min={90}
+              max={420}
+              step={2}
+              onChange={onKeyHeight}
+              suffix="px"
+            />
+            <RangeRow
+              label="Note speed"
+              hint="Waterfall / song-roll scroll speed."
+              value={noteSpeed}
+              min={40}
+              max={320}
+              step={5}
+              onChange={onNoteSpeed}
+              suffix="px/s"
+            />
+          </div>
+
+          <Button type="button" variant="outline" onClick={onReset}>
+            Reset to defaults
+          </Button>
+
+          <p className="text-xs text-muted-foreground">
+            Settings are saved to this browser (localStorage).
+          </p>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

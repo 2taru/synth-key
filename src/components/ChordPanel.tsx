@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { ChordResult } from '../music/chords';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   result: ChordResult | null;
@@ -24,33 +27,48 @@ export function ChordPanel({ result, error, onShow, onClear }: Props) {
   };
 
   return (
-    <section className="panel chord">
-      <h2>Chord visualizer</h2>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">Chord visualizer</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <form className="flex flex-col gap-2 sm:flex-row" onSubmit={submit}>
+          <Input
+            type="text"
+            placeholder="Enter chord: Cmaj7"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
+            className="sm:flex-1"
+          />
+          <div className="flex gap-2">
+            <Button type="submit" className="flex-1 sm:flex-none">
+              Show
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 sm:flex-none"
+              onClick={clear}
+            >
+              Clear
+            </Button>
+          </div>
+        </form>
 
-      <form className="chord-form" onSubmit={submit}>
-        <input
-          type="text"
-          placeholder="Enter chord: Cmaj7"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          spellCheck={false}
-          autoCorrect="off"
-          autoCapitalize="off"
-        />
-        <button type="submit">Show Chord</button>
-        <button type="button" className="ghost" onClick={clear}>
-          Clear Chord
-        </button>
-      </form>
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {error && <p className="chord-error">{error}</p>}
-
-      {result && result.ok && (
-        <p className="chord-result">
-          <strong>{result.name}</strong>
-          <span className="chord-notes">{result.notes.join(' · ')}</span>
-        </p>
-      )}
-    </section>
+        {result && result.ok && (
+          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <strong className="text-lg text-primary">{result.name}</strong>
+            <span className="text-sm text-muted-foreground">
+              {result.notes.join(' · ')}
+            </span>
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

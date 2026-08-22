@@ -9,19 +9,23 @@ export function PitchBendMeter({ value }: Props) {
   const semis = (clamped * 2).toFixed(1).replace(/\.0$/, '');
 
   return (
-    <div className="control pitchbend">
-      <span className="control-label">
-        Pitch bend
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-foreground">Pitch bend</span>
         {clamped !== 0 && (
-          <span className="pb-value">
+          <span className="tabular-nums text-muted-foreground">
             {clamped > 0 ? '+' : ''}
             {semis}
           </span>
         )}
-      </span>
-      <div className="pb-track">
-        <span className="pb-center" aria-hidden />
-        <span className="pb-thumb" style={{ left: `${percent}%` }} aria-hidden />
+      </div>
+      <div className="relative h-2 w-full rounded-full bg-secondary">
+        <span className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-border" />
+        <span
+          className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background transition-[left] duration-75"
+          style={{ left: `${percent}%` }}
+          aria-hidden
+        />
       </div>
     </div>
   );

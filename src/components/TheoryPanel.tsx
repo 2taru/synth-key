@@ -1,6 +1,16 @@
 import { Note } from 'tonal';
+import { Play } from 'lucide-react';
 import { Panel } from './Panel';
 import { TONICS, SCALE_TYPES, type ScaleInfo } from '../music/scales';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Props {
   tonic: string;
@@ -38,80 +48,100 @@ export function TheoryPanel({
 }: Props) {
   const playScale = () => {
     const asc = voice(info.notes);
-    // add the octave tonic on top for a complete run
     const top = asc.length ? asc[0] + 12 : null;
     onPlayNotes(top != null ? [...asc, top] : asc, true);
   };
 
   return (
-    <Panel id="theory" title="Scales & keys" className="theory">
-      <div className="theory-selectors">
-        <label className="theory-field">
-          <span className="control-label">Key</span>
-          <select value={tonic} onChange={(e) => onTonic(e.target.value)} aria-label="Key / tonic">
-            {TONICS.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="theory-field">
-          <span className="control-label">Scale</span>
-          <select
-            value={scaleType}
-            onChange={(e) => onScaleType(e.target.value)}
-            aria-label="Scale / mode"
+    <Panel id="theory" title="Scales & keys">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex min-w-[6rem] flex-1 flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">
+              Key
+            </span>
+            <Select value={tonic} onValueChange={onTonic}>
+              <SelectTrigger aria-label="Key / tonic">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TONICS.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="flex min-w-[8rem] flex-[2] flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">
+              Scale
+            </span>
+            <Select value={scaleType} onValueChange={onScaleType}>
+              <SelectTrigger aria-label="Scale / mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SCALE_TYPES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={playScale}
+            disabled={!info.ok}
+            title="Play the scale ascending"
           >
-            {SCALE_TYPES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="ghost theory-play"
-          onClick={playScale}
-          disabled={!info.ok}
-          title="Play the scale ascending"
-        >
-          ▶ Scale
-        </button>
-      </div>
+            <Play /> Scale
+          </Button>
+        </div>
 
-      {info.ok && (
-        <>
-          <div className="theory-notes">
-            {info.notes.map((n) => (
-              <span
-                key={n}
-                className={`theory-note ${Note.chroma(n) === info.tonicChroma ? 'root' : ''}`}
-              >
-                {n}
-              </span>
-            ))}
-          </div>
-
-          {info.chords.length > 0 && (
-            <div className="theory-chords">
-              {info.chords.map((c) => (
-                <button
-                  key={c.roman}
-                  type="button"
-                  className="theory-chord"
-                  onClick={() => onPlayNotes(voice(c.notes))}
-                  title={`${c.symbol} — click to hear`}
+        {info.ok && (
+          <>
+            <div className="flex flex-wrap gap-1.5">
+              {info.notes.map((n) => (
+                <span
+                  key={n}
+                  className={cn(
+                    'inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-medium',
+                    Note.chroma(n) === info.tonicChroma
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-secondary-foreground',
+                  )}
                 >
-                  <span className="theory-roman">{c.roman}</span>
-                  <span className="theory-sym">{c.symbol}</span>
-                </button>
+                  {n}
+                </span>
               ))}
             </div>
-          )}
-        </>
-      )}
+
+            {info.chords.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {info.chords.map((c) => (
+                  <button
+                    key={c.roman}
+                    type="button"
+                    className="flex flex-col items-center gap-0.5 rounded-lg border border-border bg-card px-3 py-2 transition-colors hover:border-primary/60 hover:bg-accent/50"
+                    onClick={() => onPlayNotes(voice(c.notes))}
+                    title={`${c.symbol} — click to hear`}
+                  >
+                    <span className="text-sm font-semibold text-primary">
+                      {c.roman}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {c.symbol}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </Panel>
   );
 }

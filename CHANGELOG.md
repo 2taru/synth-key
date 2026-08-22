@@ -5,6 +5,24 @@ All notable changes to **Synth Key** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-08-22
+
+### Added
+- Light theme — a new light/dark toggle in the header. Each theme carries its
+  own default palette; the toggle icon is a sun in dark mode and a moon in light
+  mode, and the choice is remembered (with no flash on reload).
+
+### Changed
+- The interface was rebuilt on **shadcn/ui** + **Tailwind CSS**. Every control
+  (buttons, switches, sliders, selects, dialogs, cards, tabs) now shares one
+  consistent design system, themed live from the color settings.
+- Mobile-first layout — the workspace collapses to a single column on phones,
+  the instrument list and sound library move into a slide-out panel behind the
+  header, tabs and controls use larger touch targets, and the keyboard scrolls
+  horizontally on narrow screens.
+- The audio engine and MIDI hot path are unchanged and still live outside React,
+  so playback latency is unaffected by the new UI.
+
 ## [0.11.0] - 2026-08-19
 
 ### Added

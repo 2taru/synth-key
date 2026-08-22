@@ -1,3 +1,7 @@
+import { Circle, ChevronUp, ChevronDown, X, Minus, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
 interface Props {
   visualizer: boolean;
   onVisualizer: (v: boolean) => void;
@@ -40,10 +44,15 @@ function Pill({
   return (
     <button
       type="button"
-      className={`fs-pill ${active ? 'active' : ''}`}
       onClick={onClick}
       title={title ?? label}
       aria-pressed={active}
+      className={cn(
+        'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+      )}
     >
       {label}
     </button>
@@ -84,102 +93,81 @@ export function FullscreenToolbar({
 }: Props) {
   if (minimized) {
     return (
-      <div className="fs-toolbar minimized">
-        {recording && <span className="fs-rec-badge" title="Recording" />}
-        <button
+      <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-border bg-card/90 p-1 shadow-lg backdrop-blur">
+        {recording && (
+          <span
+            className="ml-1 h-2.5 w-2.5 animate-pulse rounded-full bg-destructive"
+            title="Recording"
+          />
+        )}
+        <Button
           type="button"
-          className="fs-icon"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
           onClick={onToggleMin}
           aria-label="Show toolbar"
-          title="Show toolbar"
         >
-          ▾
-        </button>
-        <button
+          <ChevronDown />
+        </Button>
+        <Button
           type="button"
-          className="fs-icon"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
           onClick={onExit}
           aria-label="Exit fullscreen"
-          title="Exit fullscreen"
         >
-          ✕
-        </button>
+          <X />
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="fs-toolbar">
-      <div className="fs-group">
+    <div className="absolute inset-x-2 top-2 z-10 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/90 p-2 shadow-lg backdrop-blur">
+      <div className="flex flex-wrap items-center gap-1.5">
         <Pill active={visualizer} onClick={() => onVisualizer(!visualizer)} label="Visualizer" />
-        <Pill
-          active={noteWaterfall}
-          onClick={() => onNoteWaterfall(!noteWaterfall)}
-          label="Waterfall"
-        />
-        <Pill
-          active={chordDetect}
-          onClick={() => onChordDetect(!chordDetect)}
-          label="Chords"
-          title="Chord detection"
-        />
-        <Pill
-          active={intervalDetect}
-          onClick={() => onIntervalDetect(!intervalDetect)}
-          label="Intervals"
-          title="Interval detection"
-        />
-        <Pill
-          active={chordLookup}
-          onClick={() => onChordLookup(!chordLookup)}
-          label="Lookup"
-          title="Chord lookup"
-        />
+        <Pill active={noteWaterfall} onClick={() => onNoteWaterfall(!noteWaterfall)} label="Waterfall" />
+        <Pill active={chordDetect} onClick={() => onChordDetect(!chordDetect)} label="Chords" title="Chord detection" />
+        <Pill active={intervalDetect} onClick={() => onIntervalDetect(!intervalDetect)} label="Intervals" title="Interval detection" />
+        <Pill active={chordLookup} onClick={() => onChordLookup(!chordLookup)} label="Lookup" title="Chord lookup" />
         <Pill active={sustain} onClick={() => onSustain(!sustain)} label="Sustain" />
         <Pill active={metronomeOn} onClick={() => onMetronome(!metronomeOn)} label="Metronome" />
       </div>
 
-      <button
+      <Button
         type="button"
-        className={`fs-pill record ${recording ? 'armed' : ''}`}
+        variant={recording ? 'destructive' : 'secondary'}
+        size="sm"
         onClick={onRecord}
         disabled={recPlaying}
         title={recording ? 'Stop recording' : 'Record'}
       >
-        <span className="rec-dot" aria-hidden />
+        <Circle className={cn('fill-current', recording && 'animate-pulse')} />
         {recording ? 'Stop' : 'Rec'}
-      </button>
+      </Button>
 
-      <div className="fs-group octave">
-        <button type="button" className="fs-icon" onClick={onDown} disabled={!canDown} aria-label="Octave down">
-          −
-        </button>
-        <span className="fs-range">{rangeLabel}</span>
-        <button type="button" className="fs-icon" onClick={onUp} disabled={!canUp} aria-label="Octave up">
-          +
-        </button>
+      <div className="flex items-center gap-1 rounded-full border border-border px-1">
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={onDown} disabled={!canDown} aria-label="Octave down">
+          <Minus />
+        </Button>
+        <span className="min-w-16 text-center text-xs tabular-nums text-muted-foreground">
+          {rangeLabel}
+        </span>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={onUp} disabled={!canUp} aria-label="Octave up">
+          <Plus />
+        </Button>
       </div>
 
-      <div className="fs-spacer" />
-
-      <button
-        type="button"
-        className="fs-icon"
-        onClick={onToggleMin}
-        aria-label="Minimize toolbar"
-        title="Minimize toolbar"
-      >
-        ▴
-      </button>
-      <button
-        type="button"
-        className="fs-icon"
-        onClick={onExit}
-        aria-label="Exit fullscreen"
-        title="Exit fullscreen"
-      >
-        ✕
-      </button>
+      <div className="ml-auto flex items-center gap-1">
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleMin} aria-label="Minimize toolbar">
+          <ChevronUp />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={onExit} aria-label="Exit fullscreen">
+          <X />
+        </Button>
+      </div>
     </div>
   );
 }

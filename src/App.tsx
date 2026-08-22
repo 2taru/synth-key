@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { AudioEngine, DEFAULT_INSTRUMENT } from './audio/audioEngine';
 import { midiToName } from './audio/notes';
 import { useMidi, type MidiStatus } from './midi/useMidi';
@@ -38,13 +38,26 @@ import { Changelog } from './components/Changelog';
 import { SettingsModal } from './components/SettingsModal';
 import { FullscreenToolbar } from './components/FullscreenToolbar';
 import { APP_VERSION } from './changelog';
+import { Settings, Music4, Maximize, Play, GraduationCap, SlidersHorizontal, Sun, Moon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 import {
   loadSettings,
   saveSettings,
   applyColors,
-  DEFAULT_COLORS,
+  applyTheme,
+  defaultColorsFor,
   DEFAULT_SETTINGS,
   type Colors,
+  type Theme,
 } from './settings';
 
 // The visible keyboard window is always C-aligned; the user picks the low & high
@@ -67,6 +80,43 @@ const MIDI_STATUS_TEXT: Record<MidiStatus, string> = {
   unsupported: 'Web MIDI not supported in this browser',
 };
 
+const MIDI_STATUS_TONE: Record<MidiStatus, string> = {
+  idle: 'bg-muted-foreground',
+  requesting: 'bg-muted-foreground animate-pulse',
+  ready: 'bg-success shadow-[0_0_8px_hsl(var(--success))]',
+  denied: 'bg-destructive',
+  unsupported: 'bg-destructive',
+};
+
+/** A titled cluster of toggle rows inside the controls card. */
+function ControlGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex flex-col">{children}</div>
+    </div>
+  );
+}
+
+/** A small colored square used in the keyboard legend. */
+function Swatch({ color }: { color: string }) {
+  return (
+    <span
+      className="inline-block h-3 w-3 rounded-sm"
+      style={{ background: color }}
+      aria-hidden
+    />
+  );
+}
+
 export default function App() {
   // The engine lives outside React state so MIDI callbacks stay synchronous.
   const engineRef = useRef<AudioEngine | null>(null);
@@ -86,7 +136,9 @@ export default function App() {
   // Persisted settings (loaded once from localStorage).
   const s0 = useMemo(loadSettings, []);
   const [colors, setColors] = useState<Colors>(s0.colors);
+  const [theme, setTheme] = useState<Theme>(s0.theme);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [soundsOpen, setSoundsOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [toolbarMin, setToolbarMin] = useState(false);
   const [keyHeight, setKeyHeight] = useState(s0.keyHeight);
@@ -193,6 +245,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine]);
 
+  // --- Apply the light/dark theme class ---
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
   // --- Apply editable colors to CSS variables ---
   useEffect(() => {
     applyColors(colors);
@@ -217,6 +274,7 @@ export default function App() {
   useEffect(() => {
     saveSettings({
       colors,
+      theme,
       master,
       reverb,
       bpm,
@@ -252,6 +310,7 @@ export default function App() {
     });
   }, [
     colors,
+    theme,
     master,
     reverb,
     bpm,
@@ -755,9 +814,18 @@ export default function App() {
     setColors((prev) => ({ ...prev, [key]: value }));
   }, []);
   const handleResetColors = useCallback(() => {
-    setColors(DEFAULT_COLORS);
+    setColors(defaultColorsFor(theme));
     setKeyHeight(DEFAULT_SETTINGS.keyHeight);
     setNoteSpeed(DEFAULT_SETTINGS.noteSpeed);
+  }, [theme]);
+
+  // Switching theme also swaps in that theme's default palette.
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next: Theme = prev === 'dark' ? 'light' : 'dark';
+      setColors(defaultColorsFor(next));
+      return next;
+    });
   }, []);
   const toggleFullscreen = useCallback(() => {
     const el = stageWrapRef.current;
@@ -772,142 +840,187 @@ export default function App() {
   const activeKeys = visualizer ? heldNotes : NO_KEYS;
   const rangeLabel = `${midiToName(low)}–${midiToName(high)}`;
 
+  const sidebar = (
+    <>
+      <InstrumentPanel
+        instruments={instruments}
+        active={active}
+        defaultName={DEFAULT_INSTRUMENT}
+        onSelect={handleSelect}
+        onLoad={handleLoad}
+        onDelete={handleDelete}
+      />
+      <SoundLibrary
+        loaded={loadedSet}
+        loading={loadingSet}
+        active={active}
+        onPick={handleLoad}
+      />
+    </>
+  );
+
   return (
-    <div className="app">
-      <header className="app-header">
+    <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col gap-4 p-3 pb-8 sm:p-5">
+      <header className="flex items-center justify-between gap-3">
         <Logo />
-        <div className="header-right">
+        <div className="flex items-center gap-2">
           <div
-            className={[
-              'midi-status',
-              midiStatus === 'ready' && 'ok',
-              (midiStatus === 'denied' || midiStatus === 'unsupported') && 'bad',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground sm:inline-flex"
+            title={MIDI_STATUS_TEXT[midiStatus]}
           >
-            <span className="dot" aria-hidden />
-            {MIDI_STATUS_TEXT[midiStatus]}
+            <span
+              className={cn('h-2 w-2 rounded-full', MIDI_STATUS_TONE[midiStatus])}
+              aria-hidden
+            />
+            <span>{MIDI_STATUS_TEXT[midiStatus]}</span>
             {midiStatus === 'ready' && (
-              <span className="device-count">
+              <span>
                 {devices.length > 0
-                  ? ` · ${devices.length} device${devices.length > 1 ? 's' : ''}`
-                  : ' · no devices'}
+                  ? `· ${devices.length} device${devices.length > 1 ? 's' : ''}`
+                  : '· no devices'}
               </span>
             )}
           </div>
-          <button
+          <span
+            className={cn(
+              'h-2.5 w-2.5 rounded-full sm:hidden',
+              MIDI_STATUS_TONE[midiStatus],
+            )}
+            title={MIDI_STATUS_TEXT[midiStatus]}
+            aria-hidden
+          />
+          <Button
             type="button"
-            className="icon-btn"
+            variant="outline"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setSoundsOpen(true)}
+            aria-label="Instruments & sounds"
+            title="Instruments & sounds"
+          >
+            <Music4 />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+          >
+            {theme === 'dark' ? <Sun /> : <Moon />}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
             onClick={() => setSettingsOpen(true)}
             aria-label="Settings"
             title="Settings"
           >
-            ⚙
-          </button>
+            <Settings />
+          </Button>
         </div>
       </header>
 
       {!audioReady && (
-        <div className="audio-banner">
-          🔊 Click anywhere or press a key to enable audio.
+        <div className="flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm">
+          🔊 Tap anywhere or press a key to enable audio.
         </div>
       )}
 
-      <div className="layout">
-        <div className="sidebar">
-          <InstrumentPanel
-            instruments={instruments}
-            active={active}
-            defaultName={DEFAULT_INSTRUMENT}
-            onSelect={handleSelect}
-            onLoad={handleLoad}
-            onDelete={handleDelete}
-          />
-          <SoundLibrary
-            loaded={loadedSet}
-            loading={loadingSet}
-            active={active}
-            onPick={handleLoad}
-          />
-        </div>
+      <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <aside className="hidden flex-col gap-4 lg:flex">{sidebar}</aside>
 
-        <main className="main">
-          <Tabs
-            tabs={[
-              {
-                key: 'play',
-                label: 'Play',
-                badge:
-                  (visualizer ? 1 : 0) + (noteWaterfall ? 1 : 0) + (sustain ? 1 : 0),
-              },
-              {
-                key: 'learn',
-                label: 'Learn',
-                badge:
-                  (chordDetect ? 1 : 0) +
-                  (intervalDetect ? 1 : 0) +
-                  (chordLookup ? 1 : 0) +
-                  (theory ? 1 : 0) +
-                  (earTraining ? 1 : 0) +
-                  (reference ? 1 : 0),
-              },
-              {
-                key: 'studio',
-                label: 'Studio',
-                badge: (recorderMode ? 1 : 0) + (songMode ? 1 : 0),
-              },
-            ]}
-            active={activeTab}
-            onChange={setActiveTab}
-          />
+        <main className="flex min-w-0 flex-col gap-4">
+          <div className="sticky top-0 z-20 -mx-3 bg-background/85 px-3 py-2 backdrop-blur sm:-mx-5 sm:px-5">
+            <Tabs
+              tabs={[
+                {
+                  key: 'play',
+                  label: 'Play',
+                  icon: <Play className="h-4 w-4" />,
+                  badge:
+                    (visualizer ? 1 : 0) +
+                    (noteWaterfall ? 1 : 0) +
+                    (sustain ? 1 : 0),
+                },
+                {
+                  key: 'learn',
+                  label: 'Learn',
+                  icon: <GraduationCap className="h-4 w-4" />,
+                  badge:
+                    (chordDetect ? 1 : 0) +
+                    (intervalDetect ? 1 : 0) +
+                    (chordLookup ? 1 : 0) +
+                    (theory ? 1 : 0) +
+                    (earTraining ? 1 : 0) +
+                    (reference ? 1 : 0),
+                },
+                {
+                  key: 'studio',
+                  label: 'Studio',
+                  icon: <SlidersHorizontal className="h-4 w-4" />,
+                  badge: (recorderMode ? 1 : 0) + (songMode ? 1 : 0),
+                },
+              ]}
+              active={activeTab}
+              onChange={setActiveTab}
+            />
+          </div>
 
           {activeTab === 'play' && (
             <>
-              <section className="panel controls">
-                <div className="control-group">
-                  <span className="control-group-label">Visualize</span>
-                  <Toggle
-                    checked={visualizer}
-                    onChange={setVisualizer}
-                    label="Visualizer"
-                    hint="Highlight played keys"
-                  />
-                  <Toggle
-                    checked={noteWaterfall}
-                    onChange={setNoteWaterfall}
-                    label="Note waterfall"
-                    hint="Live rising piano roll"
-                  />
-                </div>
+              <Card>
+                <CardContent className="flex flex-col gap-5 pt-5">
+                  <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <ControlGroup label="Visualize">
+                      <Toggle
+                        checked={visualizer}
+                        onChange={setVisualizer}
+                        label="Visualizer"
+                        hint="Highlight played keys"
+                      />
+                      <Toggle
+                        checked={noteWaterfall}
+                        onChange={setNoteWaterfall}
+                        label="Note waterfall"
+                        hint="Live rising piano roll"
+                      />
+                    </ControlGroup>
+                    <ControlGroup label="Perform">
+                      <Toggle
+                        checked={sustain}
+                        onChange={handleSustain}
+                        label="Sustain"
+                        hint="Hold notes · pedal CC64"
+                      />
+                    </ControlGroup>
+                  </div>
 
-                <div className="control-group">
-                  <span className="control-group-label">Perform</span>
-                  <Toggle
-                    checked={sustain}
-                    onChange={handleSustain}
-                    label="Sustain"
-                    hint="Hold notes · pedal CC64"
-                  />
-                </div>
+                  <Separator />
 
-                <OctaveControl
-                  lowOctave={midiToOctave(low)}
-                  highOctave={midiToOctave(high)}
-                  minOctave={MIN_OCTAVE}
-                  maxOctave={MAX_OCTAVE}
-                  onLowOctave={handleLowOctave}
-                  onHighOctave={handleHighOctave}
-                  onDown={() => shiftOctave(-1)}
-                  onUp={() => shiftOctave(1)}
-                  canDown={low > MIN_MIDI}
-                  canUp={high < MAX_MIDI}
-                  follow={followMidi}
-                  onFollowChange={setFollowMidi}
-                />
-                <PitchBendMeter value={bend} />
-                <ModulationSlider value={mod} onChange={handleMod} />
-              </section>
+                  <OctaveControl
+                    lowOctave={midiToOctave(low)}
+                    highOctave={midiToOctave(high)}
+                    minOctave={MIN_OCTAVE}
+                    maxOctave={MAX_OCTAVE}
+                    onLowOctave={handleLowOctave}
+                    onHighOctave={handleHighOctave}
+                    onDown={() => shiftOctave(-1)}
+                    onUp={() => shiftOctave(1)}
+                    canDown={low > MIN_MIDI}
+                    canUp={high < MAX_MIDI}
+                    follow={followMidi}
+                    onFollowChange={setFollowMidi}
+                  />
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <PitchBendMeter value={bend} />
+                    <ModulationSlider value={mod} onChange={handleMod} />
+                  </div>
+                </CardContent>
+              </Card>
 
               <MixerPanel
             master={master}
@@ -935,23 +1048,24 @@ export default function App() {
 
           {activeTab === 'studio' && (
             <>
-              <section className="panel controls">
-                <div className="control-group">
-                  <span className="control-group-label">Record</span>
-                  <Toggle
-                    checked={recorderMode}
-                    onChange={setRecorderMode}
-                    label="Recorder"
-                    hint="Record & export .mid"
-                  />
-                  <Toggle
-                    checked={songMode}
-                    onChange={setSongMode}
-                    label="Song mode"
-                    hint="Play/practice a .mid"
-                  />
-                </div>
-              </section>
+              <Card>
+                <CardContent className="pt-5">
+                  <ControlGroup label="Record">
+                    <Toggle
+                      checked={recorderMode}
+                      onChange={setRecorderMode}
+                      label="Recorder"
+                      hint="Record & export .mid"
+                    />
+                    <Toggle
+                      checked={songMode}
+                      onChange={setSongMode}
+                      label="Song mode"
+                      hint="Play/practice a .mid"
+                    />
+                  </ControlGroup>
+                </CardContent>
+              </Card>
 
               <SoundPanel
             transpose={transpose}
@@ -1014,50 +1128,50 @@ export default function App() {
 
           {activeTab === 'learn' && (
             <>
-              <section className="panel controls">
-                <div className="control-group">
-                  <span className="control-group-label">Detect</span>
-                  <Toggle
-                    checked={chordDetect}
-                    onChange={setChordDetect}
-                    label="Chord detection"
-                    hint="Name the chord you play"
-                  />
-                  <Toggle
-                    checked={intervalDetect}
-                    onChange={setIntervalDetect}
-                    label="Interval detection"
-                    hint="Name & break down intervals"
-                  />
-                  <Toggle
-                    checked={chordLookup}
-                    onChange={handleChordLookup}
-                    label="Chord lookup"
-                    hint="Show a chord by name"
-                  />
-                </div>
-                <div className="control-group">
-                  <span className="control-group-label">Study</span>
-                  <Toggle
-                    checked={theory}
-                    onChange={setTheory}
-                    label="Scales & keys"
-                    hint="Highlight a scale, see its chords"
-                  />
-                  <Toggle
-                    checked={earTraining}
-                    onChange={setEarTraining}
-                    label="Ear training"
-                    hint="Guess intervals & chords"
-                  />
-                  <Toggle
-                    checked={reference}
-                    onChange={setReference}
-                    label="Reference"
-                    hint="Interval & chord cheat-sheet"
-                  />
-                </div>
-              </section>
+              <Card>
+                <CardContent className="grid gap-x-6 gap-y-4 pt-5 sm:grid-cols-2">
+                  <ControlGroup label="Detect">
+                    <Toggle
+                      checked={chordDetect}
+                      onChange={setChordDetect}
+                      label="Chord detection"
+                      hint="Name the chord you play"
+                    />
+                    <Toggle
+                      checked={intervalDetect}
+                      onChange={setIntervalDetect}
+                      label="Interval detection"
+                      hint="Name & break down intervals"
+                    />
+                    <Toggle
+                      checked={chordLookup}
+                      onChange={handleChordLookup}
+                      label="Chord lookup"
+                      hint="Show a chord by name"
+                    />
+                  </ControlGroup>
+                  <ControlGroup label="Study">
+                    <Toggle
+                      checked={theory}
+                      onChange={setTheory}
+                      label="Scales & keys"
+                      hint="Highlight a scale, see its chords"
+                    />
+                    <Toggle
+                      checked={earTraining}
+                      onChange={setEarTraining}
+                      label="Ear training"
+                      hint="Guess intervals & chords"
+                    />
+                    <Toggle
+                      checked={reference}
+                      onChange={setReference}
+                      label="Reference"
+                      hint="Interval & chord cheat-sheet"
+                    />
+                  </ControlGroup>
+                </CardContent>
+              </Card>
 
               {(chordDetect || intervalDetect) && (
                 <NowPlaying
@@ -1095,29 +1209,44 @@ export default function App() {
             </>
           )}
 
-          <section className="panel keyboard-panel">
-            <div className="legend">
-              <span className="legend-item">
-                <span className="swatch active" /> Played
+          <Card className="overflow-hidden">
+            <CardContent className="flex flex-col gap-3 pt-5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <Swatch color="var(--active)" /> Played
               </span>
-              <span className="legend-item">
-                <span className="swatch chord" /> Chord
+              <span className="inline-flex items-center gap-1.5">
+                <Swatch color="var(--chord)" /> Chord
               </span>
               {songMode && (
-                <span className="legend-item">
-                  <span className="swatch target" /> To play
+                <span className="inline-flex items-center gap-1.5">
+                  <Swatch color="var(--target)" /> To play
                 </span>
               )}
               {theory && scaleInfo.ok && (
-                <span className="legend-item">
-                  <span className="swatch scale" /> {theoryTonic} {theoryScale}
+                <span className="inline-flex items-center gap-1.5">
+                  <Swatch color="var(--accent)" /> {theoryTonic} {theoryScale}
                 </span>
               )}
               {targetIntervals && targetIntervals.stacked.length > 0 && (
-                <span className="legend-intervals" title="Intervals between the notes to play next">
+                <span
+                  className="ml-auto inline-flex items-center gap-1.5"
+                  title="Intervals between the notes to play next"
+                >
                   Next intervals:{' '}
                   {targetIntervals.stacked.map((iv, i) => (
-                    <span key={i} className="legend-iv" title={iv.label}>
+                    <span
+                      key={i}
+                      className="rounded-full border px-2 py-0.5 font-semibold"
+                      style={{
+                        color: 'var(--target)',
+                        borderColor:
+                          'color-mix(in srgb, var(--target) 32%, transparent)',
+                        background:
+                          'color-mix(in srgb, var(--target) 16%, transparent)',
+                      }}
+                      title={iv.label}
+                    >
                       {iv.short}
                     </span>
                   ))}
@@ -1125,7 +1254,7 @@ export default function App() {
               )}
             </div>
             <div
-              className={`stage-wrap ${fullscreen ? 'is-fullscreen' : ''}`}
+              className={cn('stage-wrap', fullscreen && 'is-fullscreen')}
               ref={stageWrapRef}
             >
               {fullscreen ? (
@@ -1157,15 +1286,17 @@ export default function App() {
                   onExit={toggleFullscreen}
                 />
               ) : (
-                <button
+                <Button
                   type="button"
-                  className="icon-btn fs-btn"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute right-2 top-2 z-10 h-9 w-9"
                   onClick={toggleFullscreen}
                   aria-label="Fullscreen"
                   title="Fullscreen"
                 >
-                  ⛶
-                </button>
+                  <Maximize />
+                </Button>
               )}
               <div className="stage">
                 <div className="stage-inner">
@@ -1214,20 +1345,33 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </section>
+            </CardContent>
+          </Card>
         </main>
       </div>
 
-      <footer className="app-footer">
-        <span className="footer-brand">Synth Key</span>
+      <footer className="flex items-center justify-between gap-3 border-t border-border pt-4 text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">Synth Key</span>
         <button
           type="button"
-          className="version-button"
+          className="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setChangelogOpen(true)}
         >
           v{APP_VERSION} · Changelog
         </button>
       </footer>
+
+      <Sheet open={soundsOpen} onOpenChange={setSoundsOpen}>
+        <SheetContent
+          side="left"
+          className="w-[88vw] max-w-sm overflow-y-auto p-4"
+        >
+          <SheetHeader className="p-0 pb-3">
+            <SheetTitle>Instruments &amp; sounds</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-4">{sidebar}</div>
+        </SheetContent>
+      </Sheet>
 
       <Changelog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
       <SettingsModal

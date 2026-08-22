@@ -39,29 +39,51 @@ const CHORDS: ChordRef[] = [
   { name: 'Sus4', formula: '1 · 4 · 5', intervals: 'P4 + M2' },
 ];
 
+function Heading({ children }: { children: string }) {
+  return (
+    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </h3>
+  );
+}
+
 export function ReferencePanel() {
   return (
-    <Panel id="reference" title="Reference" className="reference" defaultCollapsed>
-      <h3 className="ref-heading">Intervals</h3>
-      <div className="ref-intervals">
-        {INTERVALS.map((iv) => (
-          <div key={iv.semitones} className="ref-iv">
-            <span className="ref-iv-short">{iv.short}</span>
-            <span className="ref-iv-name">{iv.name}</span>
-            <span className="ref-iv-semi">{iv.semitones} st</span>
-          </div>
-        ))}
-      </div>
+    <Panel id="reference" title="Reference" defaultCollapsed>
+      <div className="flex flex-col gap-4">
+        <Heading>Intervals</Heading>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {INTERVALS.map((iv) => (
+            <div
+              key={iv.semitones}
+              className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-2.5 py-1.5"
+            >
+              <span className="font-semibold text-primary">{iv.short}</span>
+              <span className="flex-1 truncate text-xs text-foreground">
+                {iv.name}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {iv.semitones} st
+              </span>
+            </div>
+          ))}
+        </div>
 
-      <h3 className="ref-heading">Chord formulas</h3>
-      <div className="ref-chords">
-        {CHORDS.map((c) => (
-          <div key={c.name} className="ref-chord">
-            <span className="ref-chord-name">{c.name}</span>
-            <span className="ref-chord-formula">{c.formula}</span>
-            <span className="ref-chord-iv">{c.intervals}</span>
-          </div>
-        ))}
+        <Heading>Chord formulas</Heading>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {CHORDS.map((c) => (
+            <div
+              key={c.name}
+              className="flex flex-col gap-0.5 rounded-lg border border-border bg-secondary/40 px-3 py-2"
+            >
+              <span className="text-sm font-medium text-foreground">
+                {c.name}
+              </span>
+              <span className="text-xs text-muted-foreground">{c.formula}</span>
+              <span className="text-xs text-primary">{c.intervals}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </Panel>
   );

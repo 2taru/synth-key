@@ -5,3 +5,7 @@ dist-ssr
 .DS_Store
 .vite
 *.tsbuildinfo
+
+# Emitted from vite.config.ts by tsc -b (build artifacts)
+vite.config.js
+vite.config.d.ts

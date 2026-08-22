@@ -11,8 +11,12 @@ export interface Colors {
   stageBottom: string; // waterfall / song-roll gradient bottom (--stage-bottom)
 }
 
+export type Theme = 'light' | 'dark';
+
 export interface Settings {
   colors: Colors;
+  /** Light or dark UI theme (toggles the `.dark` class + shadcn tokens). */
+  theme: Theme;
   master: number;
   reverb: number;
   bpm: number;
@@ -79,8 +83,28 @@ export const DEFAULT_COLORS: Colors = {
   stageBottom: '#10132a',
 };
 
+/** Default palette for the light theme. */
+export const DEFAULT_COLORS_LIGHT: Colors = {
+  accent: '#4361ee',
+  played: '#f97316',
+  chord: '#0ca678',
+  target: '#4361ee',
+  noteWhite: '#4361ee',
+  noteBlack: '#7c3aed',
+  bgBase: '#f4f5f8',
+  bgPanel: '#ffffff',
+  stageTop: '#dbe4ff',
+  stageBottom: '#eef2ff',
+};
+
+/** The default palette for a given theme. */
+export function defaultColorsFor(theme: Theme): Colors {
+  return theme === 'light' ? DEFAULT_COLORS_LIGHT : DEFAULT_COLORS;
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   colors: DEFAULT_COLORS,
+  theme: 'dark',
   master: 0.9,
   reverb: 0,
   bpm: 120,
@@ -140,9 +164,15 @@ export function saveSettings(s: Settings): void {
   }
 }
 
+/** Toggle the `.dark` class so the shadcn light/dark tokens switch. */
+export function applyTheme(theme: Theme): void {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+}
+
 /** Push the CSS-variable colors onto :root so the whole UI recolors live. */
 export function applyColors(c: Colors): void {
   const root = document.documentElement.style;
+  // App domain vars (hex) — piano highlights, waterfall gradient, canvas props.
   root.setProperty('--accent', c.accent);
   root.setProperty('--active', c.played);
   root.setProperty('--chord', c.chord);
@@ -153,6 +183,43 @@ export function applyColors(c: Colors): void {
   root.setProperty('--bg-panel', c.bgPanel);
   root.setProperty('--stage-top', c.stageTop);
   root.setProperty('--stage-bottom', c.stageBottom);
+
+  // Drive the dynamic shadcn/ui tokens (HSL triplets) from the same colors so
+  // every shadcn surface follows the user's theme.
+  const primary = hexToHsl(c.accent);
+  root.setProperty('--primary', primary);
+  root.setProperty('--ring', primary);
+  root.setProperty('--background', hexToHsl(c.bgBase));
+  const panel = hexToHsl(c.bgPanel);
+  root.setProperty('--card', panel);
+  root.setProperty('--popover', panel);
+}
+
+/** Convert "#rrggbb" (or "#rgb") to a Tailwind/shadcn HSL triplet "H S% L%". */
+export function hexToHsl(hex: string): string {
+  const [r, g, b] = hexToRgb(hex).split(',').map((n) => Number(n) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  let h = 0;
+  let s = 0;
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    switch (max) {
+      case r:
+        h = ((g - b) / d) % 6;
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      default:
+        h = (r - g) / d + 4;
+    }
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
 /** Convert "#rrggbb" (or "#rgb") to an "r,g,b" string for canvas rgba(). */

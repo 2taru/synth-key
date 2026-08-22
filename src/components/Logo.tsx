@@ -11,14 +11,14 @@ interface Props {
  */
 export function Logo({ size = 40, withWordmark = true }: Props) {
   return (
-    <span className="logo">
+    <span className="inline-flex items-center gap-2.5">
       <svg
-        className="logo-mark"
         width={size}
         height={size}
         viewBox="0 0 48 48"
         role="img"
         aria-label="Synth Key logo"
+        className="shrink-0 drop-shadow"
       >
         <defs>
           <linearGradient id="sk-grad" x1="0" y1="0" x2="1" y2="1">
@@ -48,9 +48,9 @@ export function Logo({ size = 40, withWordmark = true }: Props) {
       </svg>
 
       {withWordmark && (
-        <span className="logo-wordmark">
-          <span className="logo-synth">Synth</span>
-          <span className="logo-key">Key</span>
+        <span className="text-lg font-semibold leading-none tracking-tight">
+          <span className="text-foreground">Synth</span>
+          <span className="text-primary">Key</span>
         </span>
       )}
     </span>

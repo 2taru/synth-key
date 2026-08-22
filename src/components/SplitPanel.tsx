@@ -1,5 +1,14 @@
 import { Panel } from './Panel';
 import { midiToName } from '../audio/notes';
+import { Button } from '@/components/ui/button';
+import { Slider as UiSlider } from '@/components/ui/slider';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export type LayerMode = 'off' | 'layer' | 'split';
 
@@ -23,6 +32,8 @@ const MODES: { key: LayerMode; label: string }[] = [
   { key: 'split', label: 'Split' },
 ];
 
+const NONE = '__none__';
+
 const pretty = (name: string) =>
   name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -41,68 +52,80 @@ export function SplitPanel({
   const others = readyInstruments.filter((n) => n !== primaryName);
 
   return (
-    <Panel id="split" title="Split / Layer" className="split" defaultCollapsed>
-      <div className="split-modes">
-        {MODES.map((m) => (
-          <button
-            key={m.key}
-            type="button"
-            className={`preset-btn ${mode === m.key ? 'active' : ''}`}
-            onClick={() => onMode(m.key)}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
-
-      {mode !== 'off' && (
-        <div className="split-body">
-          <label className="split-field">
-            <span className="control-label">Second sound</span>
-            {others.length > 0 ? (
-              <select
-                value={secondary}
-                onChange={(e) => onSecondary(e.target.value)}
-                aria-label="Second instrument"
-              >
-                <option value="">— none —</option>
-                {others.map((n) => (
-                  <option key={n} value={n}>
-                    {pretty(n)}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="split-hint">
-                Load another sound from the library to use as the second voice.
-              </span>
-            )}
-          </label>
-
-          {mode === 'split' && (
-            <label className="split-field">
-              <span className="control-label">
-                Split point
-                <span className="pb-value">{midiToName(splitPoint)}</span>
-              </span>
-              <input
-                type="range"
-                className="mod-slider"
-                min={low}
-                max={high}
-                step={1}
-                value={splitPoint}
-                onChange={(e) => onSplitPoint(Number(e.target.value))}
-                aria-label="Split point"
-              />
-              <span className="split-hint">
-                Below plays the second sound; at and above plays{' '}
-                {pretty(primaryName)}.
-              </span>
-            </label>
-          )}
+    <Panel id="split" title="Split / Layer" defaultCollapsed>
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-3 gap-2">
+          {MODES.map((m) => (
+            <Button
+              key={m.key}
+              type="button"
+              size="sm"
+              variant={mode === m.key ? 'default' : 'outline'}
+              onClick={() => onMode(m.key)}
+            >
+              {m.label}
+            </Button>
+          ))}
         </div>
-      )}
+
+        {mode !== 'off' && (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-foreground">
+                Second sound
+              </span>
+              {others.length > 0 ? (
+                <Select
+                  value={secondary || NONE}
+                  onValueChange={(v) => onSecondary(v === NONE ? '' : v)}
+                >
+                  <SelectTrigger aria-label="Second instrument">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>— none —</SelectItem>
+                    {others.map((n) => (
+                      <SelectItem key={n} value={n}>
+                        {pretty(n)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Load another sound from the library to use as the second
+                  voice.
+                </p>
+              )}
+            </div>
+
+            {mode === 'split' && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-foreground">
+                    Split point
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {midiToName(splitPoint)}
+                  </span>
+                </div>
+                <UiSlider
+                  min={low}
+                  max={high}
+                  step={1}
+                  value={[splitPoint]}
+                  onValueChange={([v]) => onSplitPoint(v)}
+                  aria-label="Split point"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Below plays the second sound; at and above plays{' '}
+                  {pretty(primaryName)}.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </Panel>
   );
 }

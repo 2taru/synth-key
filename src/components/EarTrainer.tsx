@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Play, Music2, ChevronRight } from 'lucide-react';
 import { Panel } from './Panel';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface Props {
   /** Play MIDI notes; `arpeggio` staggers them melodically. */
@@ -69,7 +73,6 @@ export function EarTrainer({ onPlayNotes }: Props) {
     onPlayNotes(midis, mode === 'interval');
   }, [mode, onPlayNotes]);
 
-  // Start a fresh question whenever the mode changes.
   useEffect(() => {
     setQuestion(null);
     setGuess(null);
@@ -94,73 +97,94 @@ export function EarTrainer({ onPlayNotes }: Props) {
     <Panel
       id="ear-trainer"
       title="Ear training"
-      className="ear"
       defaultCollapsed
       headerExtra={
         score.total > 0 ? (
-          <span className="ear-score">
+          <Badge variant="secondary">
             {score.correct}/{score.total} · {pct}%
-          </span>
+          </Badge>
         ) : null
       }
     >
-      <div className="ear-modes">
-        <button
-          type="button"
-          className={`preset-btn ${mode === 'interval' ? 'active' : ''}`}
-          onClick={() => setMode('interval')}
-        >
-          Intervals
-        </button>
-        <button
-          type="button"
-          className={`preset-btn ${mode === 'chord' ? 'active' : ''}`}
-          onClick={() => setMode('chord')}
-        >
-          Chords
-        </button>
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={mode === 'interval' ? 'default' : 'outline'}
+            onClick={() => setMode('interval')}
+          >
+            Intervals
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={mode === 'chord' ? 'default' : 'outline'}
+            onClick={() => setMode('chord')}
+          >
+            Chords
+          </Button>
+        </div>
+
+        {!question ? (
+          <Button type="button" className="w-full" onClick={next}>
+            <Play /> Start — play &amp; guess
+          </Button>
+        ) : (
+          <>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={replay}
+              >
+                <Music2 /> Replay
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={next}
+              >
+                Next <ChevronRight />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {choices.map((c) => {
+                const state =
+                  guess == null
+                    ? 'idle'
+                    : c.key === question.answer
+                      ? 'correct'
+                      : c.key === guess
+                        ? 'wrong'
+                        : 'idle';
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={cn(
+                      'rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors disabled:cursor-default',
+                      state === 'idle' &&
+                        'border-border bg-card hover:border-primary/60 hover:bg-accent/50 disabled:opacity-60',
+                      state === 'correct' &&
+                        'border-success bg-success/20 text-foreground',
+                      state === 'wrong' &&
+                        'border-destructive bg-destructive/20 text-foreground',
+                    )}
+                    onClick={() => answer(c.key)}
+                    disabled={guess != null}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
-
-      {!question ? (
-        <button type="button" className="ear-start" onClick={next}>
-          ▶ Start — play &amp; guess
-        </button>
-      ) : (
-        <>
-          <div className="ear-transport">
-            <button type="button" className="ghost" onClick={replay}>
-              ♪ Replay
-            </button>
-            <button type="button" className="ghost" onClick={next}>
-              Next ▶
-            </button>
-          </div>
-
-          <div className="ear-choices">
-            {choices.map((c) => {
-              const state =
-                guess == null
-                  ? ''
-                  : c.key === question.answer
-                    ? 'correct'
-                    : c.key === guess
-                      ? 'wrong'
-                      : '';
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  className={`ear-choice ${state}`}
-                  onClick={() => answer(c.key)}
-                  disabled={guess != null}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
     </Panel>
   );
 }

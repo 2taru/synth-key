@@ -5,6 +5,25 @@ All notable changes to **Synth Key** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-08-26
+
+### Added
+- **Theory** — a new top-level tab with an interactive music-theory reference.
+  It covers intervals (with semitone counts), how a chord is stacked from thirds,
+  and the seventh, suspended/sixth/added and extended chord families, plus the
+  diatonic chords of any major key. Pick a root note and tap any interval or
+  chord to hear it through the current instrument.
+
+### Fixed
+- Card padding is consistent again. Header-less cards (the Play / Learn / Studio
+  control cards and the whole Theory page) had lost their **top** padding on
+  desktop — a `sm:pt-0` in the base card component was overriding it — so section
+  headings sat jammed against the top edge. Every card now has even padding on
+  all sides at all breakpoints.
+- The workspace tab bar was shifted a few pixels to the left of the cards below
+  it (a stray negative margin on the sticky header); it now lines up with the
+  content on every screen size.
+
 ## [0.12.0] - 2026-08-22
 
 ### Added

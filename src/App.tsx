@@ -26,6 +26,7 @@ import { SoundLibrary } from './components/SoundLibrary';
 import { ChordPanel } from './components/ChordPanel';
 import { NowPlaying } from './components/NowPlaying';
 import { TheoryPanel } from './components/TheoryPanel';
+import { TheoryGuide } from './components/TheoryGuide';
 import { ReferencePanel } from './components/ReferencePanel';
 import { EarTrainer } from './components/EarTrainer';
 import { Toggle } from './components/Toggle';
@@ -38,7 +39,7 @@ import { Changelog } from './components/Changelog';
 import { SettingsModal } from './components/SettingsModal';
 import { FullscreenToolbar } from './components/FullscreenToolbar';
 import { APP_VERSION } from './changelog';
-import { Settings, Music4, Maximize, Play, GraduationCap, SlidersHorizontal, Sun, Moon } from 'lucide-react';
+import { Settings, Music4, Maximize, Play, GraduationCap, BookOpen, SlidersHorizontal, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -933,7 +934,7 @@ export default function App() {
         <aside className="hidden flex-col gap-4 lg:flex">{sidebar}</aside>
 
         <main className="flex min-w-0 flex-col gap-4">
-          <div className="sticky top-0 z-20 -mx-3 bg-background/85 px-3 py-2 backdrop-blur sm:-mx-5 sm:px-5">
+          <div className="sticky top-0 z-20 bg-background/85 py-2 backdrop-blur">
             <Tabs
               tabs={[
                 {
@@ -958,6 +959,11 @@ export default function App() {
                     (reference ? 1 : 0),
                 },
                 {
+                  key: 'theory',
+                  label: 'Theory',
+                  icon: <BookOpen className="h-4 w-4" />,
+                },
+                {
                   key: 'studio',
                   label: 'Studio',
                   icon: <SlidersHorizontal className="h-4 w-4" />,
@@ -972,7 +978,7 @@ export default function App() {
           {activeTab === 'play' && (
             <>
               <Card>
-                <CardContent className="flex flex-col gap-5 pt-5">
+                <CardContent className="flex flex-col gap-5 pt-5 sm:pt-5">
                   <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
                     <ControlGroup label="Visualize">
                       <Toggle
@@ -1049,7 +1055,7 @@ export default function App() {
           {activeTab === 'studio' && (
             <>
               <Card>
-                <CardContent className="pt-5">
+                <CardContent className="pt-5 sm:pt-5">
                   <ControlGroup label="Record">
                     <Toggle
                       checked={recorderMode}
@@ -1129,7 +1135,7 @@ export default function App() {
           {activeTab === 'learn' && (
             <>
               <Card>
-                <CardContent className="grid gap-x-6 gap-y-4 pt-5 sm:grid-cols-2">
+                <CardContent className="grid gap-x-6 gap-y-4 pt-5 sm:grid-cols-2 sm:pt-5">
                   <ControlGroup label="Detect">
                     <Toggle
                       checked={chordDetect}
@@ -1209,8 +1215,10 @@ export default function App() {
             </>
           )}
 
+          {activeTab === 'theory' && <TheoryGuide onPlayNotes={playMidis} />}
+
           <Card className="overflow-hidden">
-            <CardContent className="flex flex-col gap-3 pt-5">
+            <CardContent className="flex flex-col gap-3 pt-5 sm:pt-5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <Swatch color="var(--active)" /> Played

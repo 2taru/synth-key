@@ -1,4 +1,18 @@
+<div align="center">
+
+<img src="public/favicon.svg" width="72" alt="Synth Key logo" />
+
 # Synth Key
+
+**Play your MIDI keyboard in the browser — zero-latency, 128 sounds, chords, songs**
+
+![version](https://img.shields.io/badge/version-0.13.0-a855f7?style=flat-square)
+![React](https://img.shields.io/badge/React-20232a?style=flat-square&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Web MIDI](https://img.shields.io/badge/Web%20MIDI-API-111111?style=flat-square&logo=midi&logoColor=white)
+
+</div>
 
 A low-latency, browser-based MIDI synthesizer. Play a connected MIDI keyboard (or
 the on-screen one) through General MIDI soundfonts, browse 128 sounds, bend pitch,
@@ -24,7 +38,7 @@ Other scripts:
 ```bash
 pnpm build      # type-check + production build
 pnpm preview    # serve the production build
-pnpm typecheck  # type-check only
+npx tsc -b      # type-check only (`pnpm typecheck` currently trips on TS6310)
 ```
 
 ## How it works
